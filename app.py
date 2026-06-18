@@ -3,6 +3,20 @@ import os
 import json
 from streamlit_folium import st_folium
 import folium
+from geopy.geocoders import Nominatim
+
+geolocator = Nominatim(user_agent="platepilot", timeout=10)
+
+
+def reverse_geocode(lat, lon):
+    location = geolocator.reverse((lat, lon), language="de")
+    if location and "address" in location.raw:
+        addr = location.raw["address"]
+        stadt = addr.get("city") or addr.get("town") or addr.get("village")
+        strasse = addr.get("road")
+        return stadt, strasse
+    return None, None
+
 
 # Session-State initialisieren
 if "coords" not in st.session_state:
@@ -40,32 +54,44 @@ st.markdown("---")
 lat = st.session_state["coords"]["lat"]
 lon = st.session_state["coords"]["lon"]
 
-# Begrüßung + Standort in einer Zeile
-colA, colB = st.columns([3, 2])
+# Adresse holen
+stadt, strasse = reverse_geocode(lat, lon)
+
+# 3 Spalten: Name | Adresse | Button
+colA, colB, colC = st.columns([7, 2.5, 2.5])
 
 with colA:
-    st.markdown(f"### Hi Mike 👋")
+    st.markdown("### Hi Mike 👋")
 
 with colB:
-    if st.button(f"📍 {lat:.5f}, {lon:.5f}  ✏️"):
+    st.markdown(
+        f"""
+        <div style='font-size:15px; line-height:1.2; margin-top:6px;'>
+            📍{(stadt or "Unbekannte Stadt")}, {(strasse or "Unbekannte Straße")}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with colC:
+    #if st.button(f"{lat:.5f}, {lon:.5f} ✏️"):
+    if st.button(f"Bearbeiten ✏️"):
         st.session_state["show_map"] = True
+
 
 # Wenn Karte geöffnet werden soll
 if st.session_state["show_map"]:
 
     st.markdown("### 📍 Standort bearbeiten")
 
-    lat = st.session_state["coords"]["lat"]
-    lon = st.session_state["coords"]["lon"]
+    # Karte mit aktuellem Standort
+    m = folium.Map(location=[39.9526, -75.1652], zoom_start=13)
 
-    # Karte erstellen
-    m = folium.Map(location=[lat, lon], zoom_start=13)
     folium.Marker([lat, lon], tooltip="Aktueller Standort").add_to(m)
 
-    # Karte anzeigen
     map_data = st_folium(m, height=400, width=700)
 
-    # Wenn Nutzer klickt → neue Koordinaten speichern
+    # Klick auf Karte → neue Koordinaten speichern
     if map_data and map_data.get("last_clicked"):
         st.session_state["new_coords"] = {
             "lat": map_data["last_clicked"]["lat"],
@@ -74,19 +100,32 @@ if st.session_state["show_map"]:
 
     # Neue Koordinaten anzeigen (falls vorhanden)
     if "new_coords" in st.session_state:
-        st.write(
-            f"Neue Koordinaten: {st.session_state['new_coords']['lat']:.6f}, "
-            f"{st.session_state['new_coords']['lon']:.6f}"
+        new_lat = st.session_state["new_coords"]["lat"]
+        new_lon = st.session_state["new_coords"]["lon"]
+
+        # Reverse Geocoding für neue Koordinaten
+        stadt, strasse = reverse_geocode(new_lat, new_lon)
+
+        st.markdown(
+            f"""
+            <div style='font-size:16px; line-height:1.2;'>
+                {stadt or "Stadt "},
+                 {strasse or "Straße"}<br><br>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
-        # Speichern-Button
-        if st.button("💾 Standort speichern"):
-            st.session_state["coords"] = st.session_state["new_coords"]
-            del st.session_state["new_coords"]
-            st.session_state["show_map"] = False
-            st.success("Standort erfolgreich aktualisiert!")
-            st.rerun()
+    # Speichern-Button
+    if st.button("💾 Standort speichern"):
+        st.session_state["coords"] = st.session_state["new_coords"]
+        del st.session_state["new_coords"]
+        st.session_state["show_map"] = False
+        st.success("Standort erfolgreich aktualisiert!")
+        st.rerun()
+
 st.markdown("---")
+
 
 # --- Restlicher UI-Code ---
 st.markdown("#### Was willst du heute essen?")
@@ -103,25 +142,31 @@ st.markdown("### 2. Preisniveau")
 
 # Mapping
 price_labels = {
-    1: "€",
-    2: "€€",
-    3: "€€€",
-    4: "€€€€"
+    1: "10 €",
+    2: "50 €",
+    3: "100 €",
+    4: "200 €+"
 }
 
 # Range-Slider
-price_range = st.slider(
-    "Preisniveau auswählen:",
-    min_value=1,
-    max_value=4,
-    value=(1, 3),
-    step=1,
-    #format_func=lambda x: price_labels[x]
+st.markdown("### Preisniveau")
+
+price_steps = [10, 20, 50, 100]
+
+def format_price(value):
+    if value == 100:
+        return "100+ €"
+    return f"{value} €"
+
+
+price_range = st.select_slider(
+    "Preis auswählen:",
+    options=price_steps,
+    value=(10, 50)
 )
 
-# Anzeige der gewählten Labels
 st.write(
-    f"Ausgewählter Bereich: {price_labels[price_range[0]]} bis {price_labels[price_range[1]]}"
+    f"Ausgewählter Bereich: {format_price(price_range[0])} bis {format_price(price_range[1])}"
 )
 
 # Speichern in Filter
@@ -133,7 +178,51 @@ use_rating = st.toggle("⭐ 4 Sterne und mehr", value=False)
 
 # Entfernung
 st.subheader("4. Entfernung")
-distance = st.segmented_control("Entfernung (Radius)", ["≤ 1 km", "1–3 km", "≥ 10 km", "egal"], default="1–3 km")
+#distance = st.segmented_control("Entfernung (Radius)", ["≤ 1 km", "1–3 km", "≥ 10 km", "egal"], default="1–3 km")
+
+# Defaults
+if "distance_slider" not in st.session_state:
+    st.session_state.distance_slider = 0  # 0 = egal
+
+
+# Checkbox "egal"
+egal = st.checkbox("egal", value=True, key="dist_egal")
+
+# Logik: abh. von "egal" Slider-Status setzen
+if egal:
+    # egal aktiv → Slider deaktiviert und auf 0
+    st.session_state.distance_slider = 0
+    slider_disabled = True
+else:
+    # egal aus → Slider aktiv
+    slider_disabled = False
+    # falls noch 0, sinnvollen Startwert setzen
+    if st.session_state.distance_slider == 0:
+        st.session_state.distance_slider = 1
+
+# Slider
+distance = st.slider(
+    "Entfernung auswählen:",
+    min_value=0,
+    max_value=10,
+    value=st.session_state.distance_slider,
+    step=1,
+    disabled=slider_disabled,
+    key="dist_slider"
+)
+
+# State aktualisieren
+st.session_state.distance_slider = distance
+
+# Anzeige
+if egal:
+    st.write("Ausgewählt: egal")
+else:
+    if distance == 10:
+        st.write("Ausgewählt: 10+ km")
+    else:
+        st.write(f"Ausgewählt: bis {distance} km")
+
 
 # Extras
 st.markdown("### 5. Extras")
