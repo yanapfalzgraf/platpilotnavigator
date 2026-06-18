@@ -1,0 +1,288 @@
+[
+  {
+    "business_id": "r1",
+    "name": "Sushi Palace",
+    "rating": 4.5,
+    "review_count": 120,
+    "price": "€€",
+    "categories": ["Japanese", "Sushi Bars"],
+    "distance_km": 1.2,
+    "address": "Hauptstraße 12, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9201,
+    "longitude": 9.7782,
+    "is_open": 1,
+    "hours": {
+      "Monday": "11:00-22:00",
+      "Tuesday": "11:00-22:00",
+      "Wednesday": "11:00-22:00",
+      "Thursday": "11:00-22:00",
+      "Friday": "11:00-23:00",
+      "Saturday": "12:00-23:00",
+      "Sunday": "12:00-22:00"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "OutdoorSeating": true,
+      "RestaurantsTakeOut": true,
+      "BusinessAcceptsCreditCards": true,
+      "Parking": "lot"
+    }
+  },
+  {
+    "business_id": "r2",
+    "name": "La Trattoria",
+    "rating": 4.2,
+    "review_count": 85,
+    "price": "€€",
+    "categories": ["Italian", "Pizza"],
+    "distance_km": 0.8,
+    "address": "Marktplatz 3, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9210,
+    "longitude": 9.7801,
+    "is_open": 1,
+    "hours": {
+      "Monday": "Closed",
+      "Tuesday": "12:00-22:00",
+      "Wednesday": "12:00-22:00",
+      "Thursday": "12:00-22:00",
+      "Friday": "12:00-23:00",
+      "Saturday": "12:00-23:00",
+      "Sunday": "12:00-21:00"
+    },
+    "attributes": {
+      "WiFi": "no",
+      "OutdoorSeating": true,
+      "RestaurantsReservations": true,
+      "BusinessAcceptsCreditCards": true
+    }
+  },
+  {
+    "business_id": "r3",
+    "name": "Burger Factory",
+    "rating": 4.0,
+    "review_count": 60,
+    "price": "€",
+    "categories": ["Burgers", "Fast Food"],
+    "distance_km": 2.5,
+    "address": "Bahnhofstraße 22, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9185,
+    "longitude": 9.7750,
+    "is_open": 1,
+    "hours": {
+      "Monday": "11:00-21:00",
+      "Tuesday": "11:00-21:00",
+      "Wednesday": "11:00-21:00",
+      "Thursday": "11:00-21:00",
+      "Friday": "11:00-22:00",
+      "Saturday": "12:00-22:00",
+      "Sunday": "Closed"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "RestaurantsTakeOut": true,
+      "Parking": "street"
+    }
+  },
+  {
+    "business_id": "r4",
+    "name": "Green Bowl",
+    "rating": 4.7,
+    "review_count": 140,
+    "price": "€€",
+    "categories": ["Vegan", "Healthy"],
+    "distance_km": 1.0,
+    "address": "Schulstraße 5, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9220,
+    "longitude": 9.7790,
+    "is_open": 1,
+    "hours": {
+      "Monday": "10:00-20:00",
+      "Tuesday": "10:00-20:00",
+      "Wednesday": "10:00-20:00",
+      "Thursday": "10:00-20:00",
+      "Friday": "10:00-21:00",
+      "Saturday": "10:00-21:00",
+      "Sunday": "11:00-18:00"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "OutdoorSeating": true,
+      "RestaurantsReservations": false,
+      "BusinessAcceptsCreditCards": true
+    }
+  },
+  {
+    "business_id": "r5",
+    "name": "Asia Wok",
+    "rating": 3.9,
+    "review_count": 45,
+    "price": "€",
+    "categories": ["Asian Fusion", "Thai"],
+    "distance_km": 3.2,
+    "address": "Ringstraße 18, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9170,
+    "longitude": 9.7720,
+    "is_open": 1,
+    "hours": {
+      "Monday": "11:00-21:00",
+      "Tuesday": "11:00-21:00",
+      "Wednesday": "11:00-21:00",
+      "Thursday": "11:00-21:00",
+      "Friday": "11:00-22:00",
+      "Saturday": "12:00-22:00",
+      "Sunday": "12:00-21:00"
+    },
+    "attributes": {
+      "RestaurantsTakeOut": true,
+      "WiFi": "no",
+      "Parking": "street"
+    }
+  },
+  {
+    "business_id": "r6",
+    "name": "Steakhouse 49",
+    "rating": 4.6,
+    "review_count": 200,
+    "price": "€€€",
+    "categories": ["Steakhouses"],
+    "distance_km": 10.5,
+    "address": "Industriestraße 49, Schwäbisch Hall",
+    "city": "Schwäbisch Hall",
+    "latitude": 49.1120,
+    "longitude": 9.7370,
+    "is_open": 1,
+    "hours": {
+      "Monday": "17:00-23:00",
+      "Tuesday": "17:00-23:00",
+      "Wednesday": "17:00-23:00",
+      "Thursday": "17:00-23:00",
+      "Friday": "17:00-00:00",
+      "Saturday": "17:00-00:00",
+      "Sunday": "17:00-22:00"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "RestaurantsReservations": true,
+      "BusinessAcceptsCreditCards": true,
+      "Parking": "lot"
+    }
+  },
+  {
+    "business_id": "r7",
+    "name": "Café Morgenlicht",
+    "rating": 4.3,
+    "review_count": 70,
+    "price": "€",
+    "categories": ["Cafes", "Breakfast"],
+    "distance_km": 0.6,
+    "address": "Kirchplatz 7, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9230,
+    "longitude": 9.7810,
+    "is_open": 1,
+    "hours": {
+      "Monday": "08:00-16:00",
+      "Tuesday": "08:00-16:00",
+      "Wednesday": "08:00-16:00",
+      "Thursday": "08:00-16:00",
+      "Friday": "08:00-17:00",
+      "Saturday": "09:00-17:00",
+      "Sunday": "09:00-15:00"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "OutdoorSeating": true,
+      "BusinessAcceptsCreditCards": true
+    }
+  },
+  {
+    "business_id": "r8",
+    "name": "Taco Amigos",
+    "rating": 4.1,
+    "review_count": 55,
+    "price": "€",
+    "categories": ["Mexican"],
+    "distance_km": 2.0,
+    "address": "Lindenweg 9, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9190,
+    "longitude": 9.7760,
+    "is_open": 1,
+    "hours": {
+      "Monday": "11:30-21:00",
+      "Tuesday": "11:30-21:00",
+      "Wednesday": "11:30-21:00",
+      "Thursday": "11:30-21:00",
+      "Friday": "11:30-22:00",
+      "Saturday": "12:00-22:00",
+      "Sunday": "Closed"
+    },
+    "attributes": {
+      "RestaurantsTakeOut": true,
+      "WiFi": "no",
+      "Parking": "street"
+    }
+  },
+  {
+    "business_id": "r9",
+    "name": "Fisch & Meer",
+    "rating": 4.4,
+    "review_count": 95,
+    "price": "€€",
+    "categories": ["Seafood"],
+    "distance_km": 3.8,
+    "address": "Uferweg 2, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9160,
+    "longitude": 9.7700,
+    "is_open": 1,
+    "hours": {
+      "Monday": "Closed",
+      "Tuesday": "12:00-21:00",
+      "Wednesday": "12:00-21:00",
+      "Thursday": "12:00-21:00",
+      "Friday": "12:00-22:00",
+      "Saturday": "12:00-22:00",
+      "Sunday": "12:00-20:00"
+    },
+    "attributes": {
+      "OutdoorSeating": true,
+      "BusinessAcceptsCreditCards": true,
+      "WiFi": "free"
+    }
+  },
+  {
+    "business_id": "r10",
+    "name": "Mama India",
+    "rating": 4.5,
+    "review_count": 110,
+    "price": "€€",
+    "categories": ["Indian"],
+    "distance_km": 1.5,
+    "address": "Rosenstraße 14, Gaildorf",
+    "city": "Gaildorf",
+    "latitude": 48.9215,
+    "longitude": 9.7775,
+    "is_open": 1,
+    "hours": {
+      "Monday": "11:00-22:00",
+      "Tuesday": "11:00-22:00",
+      "Wednesday": "11:00-22:00",
+      "Thursday": "11:00-22:00",
+      "Friday": "11:00-23:00",
+      "Saturday": "12:00-23:00",
+      "Sunday": "12:00-21:00"
+    },
+    "attributes": {
+      "WiFi": "free",
+      "RestaurantsReservations": true,
+      "BusinessAcceptsCreditCards": true,
+      "Parking": "lot"
+    }
+  }
+]
