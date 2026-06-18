@@ -4,5 +4,5 @@ numpy
 altair
 folium
 streamlit-folium
-geopy.geocoders
+geopy
 
