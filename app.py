@@ -378,7 +378,7 @@ def show_form():
     sel = st.session_state["selected_extras"]
     if sel:
         st.write(f"**Deine Extras-Filter:** {', '.join(sel)}")
-
+     st.markdown("")
     if st.button("🔍 Suche starten"):
         st.session_state["filters"] = {
             "kitchen": selected_kitchen,
