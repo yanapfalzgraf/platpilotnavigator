@@ -330,6 +330,7 @@ def show_form():
     st.markdown("### 5. Location")
 
     location_options = [
+        "Restaurant",
         "Sushi Bar",
         "Café",
         "Bäckerei",
