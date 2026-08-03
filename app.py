@@ -1,1322 +1,1012 @@
+from pathlib import Path
+import html
 import streamlit as st
-import os
-from streamlit_folium import st_folium
-import folium
-from geopy.geocoders import Nominatim
-import pandas as pd
-import math
-import ast
-import numpy as np 
-from recommendation import get_recommendations
-from urllib.parse import quote_plus
+import base64
+import mimetypes
 
-#score_search.parquet ist die Datenquelle. app.py lädt und bereitet diese Daten auf und sammelt die Nutzereingaben. recommendation.py 
-#verwendet anschließend genau diese Daten und Eingaben, um die Scores zu berechnen und die Restaurants zu ranken. Ohne score_search.parquet 
-#gäbe es keine Restaurantinformationen, auf denen der Empfehlungsalgorithmus arbeiten könnte.
+from chatbot import (
+    contact_form_dialog,
+    init_chat_state,
+    render_floating_chat,
+)
 
-#KITCHEN_MAP verbindet die sichtbaren UI-Namen wie "Latin American" mit den Spaltennamen in der Datei, zum Beispiel "Latin_American".
+BASE_DIR = Path(__file__).parent
+PORTRAIT_PATH = BASE_DIR / "assets" / "images" / "yp_image.png"
+def get_image_data_url(relative_path: str) -> str:
+    image_path = BASE_DIR / relative_path
 
-DATA_SCHEMA_VERSION = "score_search_v2"
+    if not image_path.is_file():
+        raise FileNotFoundError(f"Bild nicht gefunden: {image_path}")
 
-#Übersetzungstabellen zwischen UI und score_search.parquet
-#Streamlit speichert Daten im Cache.
-#Wenn ihr später eure Parquet-Datei ändert (z.B. neue Spalten hinzufügt),
-#könnte Streamlit trotzdem noch alte Daten benutzen.
-#Das ist das wichtigste Dictionary für die Küchen.
-#Der Benutzer sieht schöne Namen.
-KITCHEN_MAP = {
-    "European": "European",
-    "Asian": "Asian",
-    "Chinese": "Chinese",
-    "Japanese": "Japanese",
-    "Mexican": "Mexican",
-    "Latin American": "Latin_American",
-    "Middle Eastern": "Middle_Eastern",
-    "African": "African",
-    "Italian": "Italian",
-    "Mediterranean": "Mediterranean",
-    "South Asian": "South_Asian",
-    "American Traditional": "American_Traditional",
-    "Vegetarian / Vegan": "Vegetarian&Vegan",
-    "American New": "American_New",
-    "Burgers": "Burgers",
-    "Fast Food": "Fast_Food",
-    "Pizza": "Pizza",
-    "Breakfast & Brunch": "Breakfast&Brunch",
-    "Coffee & Tea": "Coffee&Tea",
-    "Healthy Options": "Healthy_Options",
-    "Chicken": "Chicken",
-    "Seafood": "Seafood",
-    "Sandwiches": "Sandwiches",
-    "Noodles": "Noodles",
-    "Soup": "Soup",
-    "Desserts": "Desserts",
-    "Bakeries": "Bakeries",
-    "Juice & Smoothies": "Juice&Smoothies",
-    "Steak & Barbeque": "Steak&Barbeque",
-    "Bars & Nightlife": "Bars&Nightlife",
-    "Casual & Quick": "Casual&Quick"
-   
-}
+    mime_type, _ = mimetypes.guess_type(image_path)
 
-#Übersetzung von DB zu User Sprache
-EXTRA_MAP = {
-    "Wi-Fi": "WiFi",
-    "Outdoor": "Outdoor Seating",
-    "Credit Card": "Credit Card",
-    "Reservations": "Reservations",
-    "Takeout": "Takeout",
-    "Parking": "Parking",
-    "Happy Hour": "Happy Hour",
-    "Dogs Allowed": "Dogs Allowed",
-    "TV": "TV",
-    "Wheelchair": "Wheelchair Accessible",
-    "Alcohol": "Alcohol",
-    "Quiet": "Noise Level",
-    "Bike Parking": "Bike Parking",
-    "Good for Kids": "Good for Kids",
-    "Good for Groups": "Good for Groups",
-}
+    if mime_type is None:
+        mime_type = "application/octet-stream"
+
+    encoded = base64.b64encode(
+        image_path.read_bytes()
+    ).decode("utf-8")
+
+    return f"data:{mime_type};base64,{encoded}"
+
+def get_base64_image(path: Path) -> str:
+    with path.open("rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-#Suche nach extra im Dictionary. Wenn es vorhanden ist, gib den übersetzten Namen zurück. Wenn nicht, gib einfach den ursprünglichen Namen zurück.
-def normalize_extra_name(extra: str) -> str:
-    return EXTRA_MAP.get(extra, extra)
+portrait_base64 = get_base64_image(PORTRAIT_PATH)
 
-#Liste enthält alle Küchen- und Restaurantkategorien, die in der Datei score_search.parquet als One-Hot-Spalten gespeichert sind.
-#1 = Restaurant gehört zu dieser Kategorie.
-#0 = Restaurant gehört nicht zu dieser Kategorie.
-#beim laden der daten: load_and_prepare_data -> welche der erwarten Kategorien existieren tatsächlich in der Parquet-Datei?
-category_columns = [
-    "European",
-    "Middle_Eastern",
-    "Asian",
-    "Latin_American",
-    "Chinese",
-    "Mediterranean",
-    "Japanese",
-    "South_Asian",
-    "Italian",
-    "African",
-    "American_Traditional",
-    "Vegetarian&Vegan",
-    "Mexican",
-    "American_New",
-    "Desserts",
-    "Fast_Food",
-    "Noodles",
-    "Bakeries",
-    "Juice&Smoothies",
-    "Sandwiches",
-    "Steak&Barbeque",
-    "Chicken",
-    "Healthy_Options",
-    "Burgers",
-    "Pizza",
-    "Seafood",
-    "Soup",
-    "Bars&Nightlife",
-    "Casual&Quick",
-    "Coffee&Tea",
-    "Breakfast&Brunch",
+clock_icon = get_image_data_url("assets/icons/clock.svg")
+workflow_icon = get_image_data_url("assets/icons/workflow.svg")
+chart_icon = get_image_data_url("assets/icons/chart-column-big.svg")
+
+users_icon = get_image_data_url("assets/icons/users.svg")
+search_icon = get_image_data_url("assets/icons/search.svg")
+lightbulb_icon = get_image_data_url("assets/icons/lightbulb.svg")
+target_icon = get_image_data_url("assets/icons/crosshair.svg")
+growth_icon = get_image_data_url("assets/icons/chart-column-decreasing.svg")
+st.set_page_config(
+    page_title="Yana Pfalzgraf | Data Analystin & UX",
+    page_icon="YP",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+init_chat_state()
+
+
+def open_contact_form() -> None:
+    """Öffnet ausschließlich das Kontaktformular."""
+    st.session_state["contact_form_open"] = True
+
+
+st.html(BASE_DIR / "assets" / "style.css")
+st.markdown(
+    """
+    <style>
+    /* Dialog insgesamt breiter */
+    div[data-testid="stDialog"] > div[role="dialog"] {
+        width: min(1500px, 97vw) !important;
+        max-width: 1500px !important;
+        max-height: 94vh !important;
+        overflow-y: auto !important;
+        border-radius: 18px !important;
+    }
+
+
+    /* Hauptbild im Projekt-Dialog */
+    .case-image-frame {
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid #dbe3df;
+        border-radius: 16px;
+        background: #f7f9f8;
+    }
+
+    .case-image-frame img {
+        width: 100%;
+        max-width: none;
+        height: auto;
+        display: block;
+        object-fit: contain;
+    }
+
+    .case-counter {
+        margin-top: 0.45rem;
+        margin-bottom: 0.9rem;
+        text-align: center;
+        color: #64736e;
+        font-size: 0.85rem;
+    }
+
+    /* Unterer Informationsbereich: exakt drei Spalten */
+    .case-description-grid {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 1.15fr;
+        gap: 3rem;
+        align-items: start;
+
+        margin-top: 1.5rem;
+        padding: 1.7rem 0 1.8rem;
+        border-top: 1px solid #dfe5e1;
+    }
+
+    .case-description-grid section {
+        min-width: 0;
+    }
+
+    .case-description-grid h4 {
+        margin: 0 0 0.85rem;
+        color: #1f5a49;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+    }
+
+    .case-description-grid p {
+        margin: 0;
+        color: #3e4d48;
+        font-size: 0.91rem;
+        line-height: 1.65;
+    }
+
+    /* Abstand zwischen Rolle und Tools */
+    .case-tools-heading {
+        margin-top: 1.45rem !important;
+    }
+
+    /* Tools nebeneinander */
+    .case-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        align-items: center;
+    }
+
+    .case-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.4rem 0.65rem;
+
+        border: 1px solid #d6dfda;
+        border-radius: 999px;
+        background: #f5f7f6;
+
+        color: #29483e;
+        font-size: 0.78rem;
+        white-space: nowrap;
+    }
+
+    /* Highlights */
+    .case-highlights {
+        display: grid;
+        gap: 0.7rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .case-highlights li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.55rem;
+
+        color: #3e4d48;
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
+    .case-check {
+        width: 1.15rem;
+        height: 1.15rem;
+        flex: 0 0 1.15rem;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        margin-top: 0.05rem;
+        border-radius: 50%;
+        background: #1f5a49;
+        color: white;
+
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+
+    /* Trennlinie vor der Projekt-Navigation */
+    .case-project-footer-divider {
+        margin: 0;
+        padding-top: 1rem;
+        border-top: 1px solid #dfe5e1;
+    }
+
+    /* Projektzähler in der Mitte */
+    .case-project-counter {
+        padding: 0.8rem 0;
+        text-align: center;
+        color: #43534d;
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    /* Footer-Buttons */
+    div[data-testid="stDialog"] button {
+        min-height: 42px;
+        border-radius: 8px;
+    }
+
+    /* Erst auf kleinen Displays untereinander */
+    @media (max-width: 720px) {
+        .case-description-grid {
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+        }
+    }
+
+    /* Lokale Lucide-Icons */
+    .expertise-icon img {
+        width: 25px;
+        height: 25px;
+        display: block;
+        object-fit: contain;
+        filter: brightness(0) invert(1);
+    }
+
+    .process-icon img {
+        width: 24px;
+        height: 24px;
+        display: block;
+        object-fit: contain;
+        opacity: 0.78;
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+PROJECTS_UX = [
+    {
+        "title": "Murrelektronik",
+        "subtitle": "UX/UI Design · Prototyping · Stakeholder Austausch",
+        "image": "assets/images/murrelektronik.svg",
+        "card_image": "assets/images/Murrelektronik.svg",
+        "cover_image": "assets/images/Murrelektronik.svg",
+        "description": "Entwicklung einer nutzerzentrierten UX für eine digitale Installationsplattform, die Mitarbeitende visuell und interaktiv durch komplexe Verdrahtungsprozesse begleitet.",
+        "tags": ["UX Research", "UI Design", "Figma", "Prototyping"],
+
+        "gallery": [
+        "assets/images/Murrelektronik.svg",
+        "assets/images/murrelektronik4.svg",
+        "assets/images/murrelektronik5.svg",
+        "assets/images/murrelektronik6.svg",
+        ],
+    },
+    {
+        "title": "OPTIMA",
+        "subtitle": "UX/UI Design · Web & Software · Industrial IT",
+        "image": "assets/images/optima.svg",
+        "card_image": "assets/images/optima.svg",
+        "cover_image": "assets/images/optima.svg",
+        "description": "UX/UI Design verschiedener Anwendungen für industrielle Arbeitsabläufe – von der Konzeption bis zur Gestaltung intuitiver Benutzeroberflächen.",
+        "tags": ["User Flows", "Sketch", "Adobe XD", "Design System"],
+
+        "gallery": [
+        "assets/images/optima.svg",
+        "assets/images/optima2.svg",
+        "assets/images/optima3.svg",
+        "assets/images/optima4.svg",
+        ],
+    },
+    {
+        "title": "MeaPuna",
+        "subtitle": "SAP UI5 Entwicklung · UX/UI Design · Prototyping",
+        "image": "assets/images/meapuna.svg",
+        "card_image": "assets/images/meapuna.svg",
+        "cover_image": "assets/images/meapuna.svg",
+        "description": "Verantwortung für UX/UI Design und Frontend-Entwicklung (SAPUI5) in zwei Softwareprojekten – von der ersten Idee bis zur produktiven Umsetzung.",
+        "tags": ["SAP UI5 Programming","SAP Fiori Apps Reference Library", "Wireframes", "Usability"],
+
+        "gallery": [
+        "assets/images/meapuna.svg",
+        "assets/images/meaouna.svg",
+        "assets/images/meapuna2.svg",
+        "assets/images/meapuna3.svg",
+        ],
+    },
+    {
+        "title": "Mercedes-Benz / CINTEO",
+        "subtitle": "UX/UI Design · In-Car-System · Stakeholder Austausch",
+        "image": "assets/images/mercedes.svg",
+        "card_image": "assets/images/cinteo.svg",
+        "cover_image": "assets/images/cinteo.svg",
+        "description": "Interface-Konzept für ein digitales Produkterlebnis im automobilen Kontext.",
+        "tags": ["Interaction Design", "Axure", "Automotive", "UI"],
+
+        "gallery": [
+        "assets/images/cinteo.svg",
+        "assets/images/cinteo4.svg",
+        "assets/images/cinteo2.svg",
+        "assets/images/cinteo_suche_3.svg",
+        ],
+    },
 ]
 
-#alle Extras bzw. Eigenschaften eines Restaurants.
-#Beim Laden der Daten: Für jedes Restaurant wird ein Attribut-Vektor erstellt.
-#Liste legen die Reihenfolge der Vektoren fest.
-attr_columns = [
-        "BusinessAcceptsCreditCards",
-        "BikeParking",
-        "RestaurantsTakeOut",
-        "WheelchairAccessible",
-        "HappyHour",
-        "OutdoorSeating",
-        "HasTV",
-        "RestaurantsReservations",
-        "DogsAllowed",
-        "GoodForKids",
-        "RestaurantsGoodForGroups",
-        "BusinessParking",
-        "Alcohol",
-        "Quiet",
-        "WiFi",
-    ]
+PROJECTS_DATA = [
+    {
+        "title": "Projekt 01 · Autoscout 24",
+        "subtitle": "Data Analytics · Power BI · DAX · Python",
+        "image": "assets/images/data_prediction.svg",
+        "card_image": "assets/images/dsi1.svg",
+        "cover_image": "assets/images/dsi1.svg",
+        "description": (
+           "AutoScout24-Datensatz · Analyse des Gebrauchtwagenmarktes · Preisentwicklung nach Baujahr · Marken- und Modellvergleich · Auswertung von Laufleistung, Leistung und Kraftstoffarten · Interaktive Filter und KPIs · DAX Measures · Power Query · Star Schema · Dashboard zur datengetriebenen Fahrzeuganalyse."
+        ),
+        "tags": [
+            "Power BI",
+            "Data Analytics",
+            "Dashboard Design",
+            "DAX",
+            "Python",
+            "Power Query",
+            "ML",
+        ],
+        "gallery": [
+            "assets/images/dsi1.svg",
+            "assets/images/dsi2.svg",
+            "assets/images/dsi3.svg",
+            "assets/images/dsi4.svg",
+            "assets/images/dsi5.svg",
+            "assets/images/dsi6.svg",
+            "assets/images/dsi7.svg",
+        ],
+    },
+    {
+        "title": "Projekt 02 · PlatePilot Navigator App",
+        "subtitle": "Empfehlungssystem · Scoring-Modell · Streamlit · Python",
+        "image": "assets/images/data_forecasting.svg",
+        "card_image": "assets/images/ppnavigator.svg",
+        "cover_image": "assets/images/ppnavigator.svg",
+        "description": "Restaurant-Empfehlungsplattform · Personalisierte Filter · Gewichtetes Empfehlungssystem · Kartenintegration · Interaktive Datenvisualisierung · Restaurantsuche · Standortbasierte Empfehlungen · Streamlit · Python · Benutzerfreundliche Navigation · Datenanalyse · API-Integration",
+        "demo_url": "https://platpilotnavigatorapp.streamlit.app/",
+        "tags": ["Python", "Streamlit", "Pandas", "Scikit-learn", "NumPy", "Folium", "GeoPy", "Parquet"],
+
+        "gallery": [
+        "assets/images/ppnavigator.svg",
+        "assets/images/ppnavigator2.svg",
+        ],
+    },
+    {
+        "title": "Projekt 03 · Olympische Spiele",
+        "subtitle": "Data Analytics · Power BI · DAX · Python",
+        "image": "assets/images/data_insights.svg",
+        "card_image": "assets/images/dsi.svg",
+        "cover_image": "assets/images/dsi.svg",
+        "description": (
+    "Olympische Datenanalyse · Star Schema · Power BI · DAX Measures · Dimensionen & Faktentabelle · Länderdominanz · Frauen-/Männer-Teilnahme · Historische Entwicklungen · Sportartenwachstum · Participation Rate · Gender Gap · Female-to-Male Ratio · Trendanalysen"
+),
+        "tags": ["Power BI", "Data Visualization", "DAX", "Power Query"],
+
+        "gallery": [
+        "assets/images/dsi.svg",
+        ],
+    },
+]
+
+# Zusätzliche Daten für die Projekt-Detailansicht.
+# Pro Projekt kannst du später mehrere Bilder in "gallery" ergänzen.
+ALL_PROJECTS = PROJECTS_UX + PROJECTS_DATA
+
+for project in ALL_PROJECTS:
+    project.setdefault("card_image", project["image"])
+    project.setdefault("cover_image", project["card_image"])
+    project.setdefault("gallery", [project["cover_image"]])
+    project.setdefault("role", project["subtitle"])
+    project.setdefault("highlights", project["tags"])
+    project.setdefault("tools", project["tags"])
 
 
-#Datenvorbereitung: die Daten werden aus score_search.parquet in ein einheitliches Format gebracht werden, 
-#bevor sie später von recommendation.py verwendet.
-#Diese Funktion erzeugt eine leicht lesbare Kategorienliste.
-def extract_categories(row): #schaut sich die Restaurant-Zeile an und sammelt alle Kategorien, die den Wert 1 besitzen
-    return [col for col in category_columns if row.get(col, 0) == 1]#Hier wird aus der aktuellen Zeile ein Wert gelesen.
+UX_VISIBLE_CARDS = 3
+UX_MAX_START = max(0, len(PROJECTS_UX) - UX_VISIBLE_CARDS)
 
-#In einer Parquet-Datei können Attribute unterschiedlich gespeichert sein.
-#Die Funktion sorgt dafür, dass am Ende immer ein Dictionary herauskommt.
-def normalize_attributes(attr): #Attribute müssen immer als dict vorliegen
-    if isinstance(attr, dict):
-        return attr
-    if isinstance(attr, str):
-        try:
-            parsed = ast.literal_eval(attr)
-            return parsed if isinstance(parsed, dict) else {} #Jetzt wird geprüft, ob wirklich ein Dictionary entstanden ist.
-        except Exception:
-            return {}
-    return {} #falls attr weder dict noch str ist-> leeres Dictionary
+if "ux_carousel_start" not in st.session_state:
+    st.session_state["ux_carousel_start"] = 0
+
+if "active_project_index" not in st.session_state:
+    st.session_state["active_project_index"] = None
 
 
-#vereinheitlicht unterschiedliche Bezeichnungen der Restaurantattribute.
-#Attribute, deren Namen in der Parquet-Datei von den in der Benutzeroberfläche
-#verwendeten Namen abweichen, werden auf eine einheitliche Bezeichnung abgebildet
-#Dadurch können alle nachfolgenden Programmteile unabhängig von der ursprünglichen Datenstruktur auf dieselben Attributnamen zugreifen.
-def fix_attribute_names(attr):
-    attr = normalize_attributes(attr)
-
-    if "RestaurantsGoodForGroups" in attr and "GoodForGroups" not in attr:
-        attr["GoodForGroups"] = attr.get("RestaurantsGoodForGroups")
-
-    # Parquet-Spalte Quiet wird für Lautstärke genutzt.
-    if "Quiet" in attr and "NoiseLevel" not in attr:
-        attr["NoiseLevel"] = "quiet" if truthy_attr(attr.get("Quiet")) else None
-
-    return attr
-
-#sorgt dafür, dass all diese unterschiedlichen Darstellungen einheitlich als True erkannt werden.
-def truthy_attr(value): 
-    if value is True:
-        return True
-    if value is False or value is None:
-        return False
-
-    if isinstance(value, (int, float)):
-        return value == 1
-
-    s = str(value).strip().lower().strip("u'\"")
-
-    return s in { 
-        "1", "true", "yes", "free", "paid",
-        "beer_and_wine", "full_bar"
-    }
-
-#Die Logik ist weich:
-#Ein gleich teures Restaurant bekommt den besten Preis-Score.
-#Ein etwas günstigeres Restaurant wird kaum bestraft.
-#Ein teureres Restaurant wird stärker bestraft.
-
-#Preisreihenfolge festlegen
-PRICE_ORDER = ["﹩", "﹩﹩", "﹩﹩﹩", "﹩﹩﹩﹩"]
-
-#normalize_price() wandelt verschiedene Preisformate in $, $$, $$$, $$$$ um.
-def normalize_price(value):
-    if value is None or pd.isna(value):
-        return "﹩﹩"
-
-
-    s = str(value).strip() #Wert in einen String umwandeln
-
-    #Zahlen in Preisstufen umwandeln
-    if s in PRICE_ORDER:
-        return s
-    if s in {"1", "1.0", "﹩"}:
-        return "﹩"
-    if s in {"2", "2.0", "﹩﹩"}:
-        return "﹩﹩"
-    if s in {"3", "3.0", "﹩﹩﹩"}:
-        return "﹩﹩﹩"
-    if s in {"4", "4.0", "﹩﹩﹩﹩"}:
-        return "﹩﹩﹩﹩"
-
-    return "﹩﹩"
-
-def format_opening_hours(hours: str) -> str:
-    try:
-        start, end = str(hours).split("-")
-        sh, sm = start.split(":")
-        eh, em = end.split(":")
-        return f"{int(sh):02d}:{int(sm):02d}-{int(eh):02d}:{int(em):02d}"
-    except Exception:
-        return str(hours)
-        
-#---CASHING / ORDNER / PFAD---#
-#Die Restaurantdaten werden nicht bei jedem Klick neu geladen.
-#Streamlit merkt sich das geladene DataFrame. Das macht die App schneller. 
-@st.cache_data(show_spinner="Loading restaurant data...") 
-
-#Die Datei score_search.parquet finden.
-#Die Daten laden und vorbereiten.
-def load_and_prepare_data(): #sucht die Datei:restaurant_filter.parquet
-    base_dir = os.path.dirname(os.path.abspath(__file__)) #ordner, speicherort bestimmt
-
-#mögliche Speicherorte festlegen
-    possible_paths = [
-        os.path.join(base_dir, "score_search.parquet"),
-        os.path.join(base_dir, "Daten", "score_search.parquet")
-    ]
-
-#die Datei suchen
-    rest_path = next((p for p in possible_paths if os.path.exists(p)), None)
-
-#Falls keiner der beiden Pfade existiert, erscheint eine Fehlermeldung.
-    if rest_path is None:
-        st.error(
-            "score_search.parquet was not found. "
-            "Please place the file either in the 'Data' folder next to app.py "
-            "or in the same directory as app.py."
-        )
-        st.stop()
-
-    #datei wird gelesen
-    df = pd.read_parquet(rest_path)
-
-# Prüfung und Vereinheitlichung der Spaltennamen.
-# Einige Datensätze enthalten alternative Spaltenbezeichnungen (z. B. "name_x"
-# anstelle von "name"). Um im weiteren Programmverlauf einheitlich auf die
-# Daten zugreifen zu können, werden vorhandene Alternativspalten auf die
-# erwarteten Standardnamen abgebildet.
-
-    if "name" not in df.columns and "name_x" in df.columns:
-        df["name"] = df["name_x"]
-    if "city" not in df.columns and "city_x" in df.columns:
-        df["city"] = df["city_x"]
-    if "state" not in df.columns and "state_x" in df.columns:
-        df["state"] = df["state_x"]
-    if "latitude" not in df.columns and "latitude_x" in df.columns:
-        df["latitude"] = df["latitude_x"]
-    if "longitude" not in df.columns and "longitude_x" in df.columns:
-        df["longitude"] = df["longitude_x"]
-
-    # Kategorien vorbereiten
-    #Welche der erwarteten Kategorie-Spalten existieren tatsächlich in der Parquet-Datei?
-    available_category_columns = [col for col in category_columns if col in df.columns]
-    
-    #Kategorien aus One-Hot-Spalten erzeugen
-    if available_category_columns:
-        df["categories"] = df[available_category_columns].eq(1).apply(
-            lambda row: row.index[row].tolist(), #läuft jede Restaurant-Zeile einzeln durch um .
-            axis=1
-        )
-    elif "categories" in df.columns:
-        df["categories"] = df["categories"].apply(
-            lambda x: x if isinstance(x, list)
-            else ([c.strip() for c in str(x).split(",") if c.strip()] if pd.notna(x) else [])
-        )
-    else:
-        df["categories"] = [[] for _ in range(len(df))]
-
-    # Preis: Parquet-Datei hat PriceLevel oder nicht? Wenn ja = true.
-    if "PriceLevel" in df.columns:
-        df["price"] = df["PriceLevel"].apply(normalize_price)
-    elif "price" in df.columns:
-        df["price"] = df["price"].apply(normalize_price)
-    else:
-        df["price"] = "﹩﹩"
-
-    # Bewertung: Parquet-Datei hat stars. Wird für die Anzaige der Ergebnisse benötigt
-    if "stars_real" in df.columns:
-        df["rating"] = df["stars_real"]
-    elif "stars" in df.columns:
-        df["rating"] = df["stars"]
-    elif "rating" not in df.columns:
-        df["rating"] = 0
-
-    # Attribute: Parquet-Datei hat einzelne 0/1-Spalten.
-    # Daraus bauen wir wieder ein attributes-Dict, damit alle UI-Filter gleich bleiben.
-    available_attr_columns = [col for col in attr_columns if col in df.columns]
-
-    if "attributes" in df.columns:
-        df["attributes"] = df["attributes"].apply(normalize_attributes)
-    elif available_attr_columns:
-        df["attributes"] = df[available_attr_columns].apply(
-            lambda row: row.to_dict(),
-            axis=1
-        )
-    else:
-        df["attributes"] = [{} for _ in range(len(df))]
-
-    df["attributes"] = df["attributes"].apply(fix_attribute_names)
-
-    #falls kein distance gibt, bekommen jedes Restaurant 0.0, falls nicht vorhanden - 0
-    if "distance_km" not in df.columns:
-        df["distance_km"] = 0.0
-
-    if "review_count" not in df.columns:
-        df["review_count"] = 0
-
-
-    #Öffnungszeiten vorbereiten: falls vorhanden-> über normalize_attr vereinheitlicht, falls nicht {}
-    if "hours" in df.columns:
-        df["hours"] = df["hours"].apply(normalize_attributes)
-    else:
-        df["hours"] = [{} for _ in range(len(df))]
-
-    #Adresse vorbereiten-> das gleiche wie bei öffnungszeiten
-    if "address" not in df.columns:
-        df["address"] = ""
-
-    #Vektoren erzeugen. Dieser Vektor wird später mit dem User-Vektor verglichen.
-    df["categories_vector"] = (
-        df.reindex(columns=category_columns, fill_value=0)
-        .fillna(0)
-        .astype(int)
-        .values
-        .tolist()
+@st.dialog("Projekt", width="large")
+def project_dialog(project: dict) -> None:
+    project_index = next(
+        (
+            index
+            for index, item in enumerate(ALL_PROJECTS)
+            if item["title"] == project["title"]
+        ),
+        0,
     )
 
-    #das gleiche passiert hier
-    df["attributes_vector"] = (
-        df.reindex(columns=attr_columns, fill_value=0)
-        .fillna(0)
-        .astype(int)
-        .values
-        .tolist()
+    project_key = (
+        project["title"]
+        .lower()
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("·", "_")
     )
 
-    restaurants_list = df.to_dict(orient="records")
-    return df, restaurants_list
+    gallery = project.get("gallery") or [project["cover_image"]]
+    gallery_index_key = f"gallery_index_{project_key}"
 
+    if gallery_index_key not in st.session_state:
+        st.session_state[gallery_index_key] = 0
 
-#speichert App-Zustände, zum Beispiel:aktuelle Seite, aktueller Standort, ausgewählte Extras,Suchergebnisse.
-if (
-    st.session_state.get("data_schema_version") != DATA_SCHEMA_VERSION
-    or "merged" not in st.session_state #speichert aktuellen Nutzerzustand:Welche Seite? Welche Filter? Welche Extras? Welche Ergebnisse?
-    or "restaurants_list" not in st.session_state
-):
-    df_merged, restaurants_list = load_and_prepare_data() #wird nur einmal richtig geladen, danach aus dem Cache genommen.
-    st.session_state["merged"] = df_merged
-    st.session_state["restaurants_list"] = restaurants_list #wird es zusätzlich in session_state gespeichert...So kann die App später schnell darauf zugreifen.
-    # Wenn man die Parquet-Datei ändert, aber Streamlit alte Daten zeigt, liegt es oft am Cache.
-    st.session_state["data_schema_version"] = DATA_SCHEMA_VERSION
-else:
-    df_merged = st.session_state["merged"]
+    current_image_index = (
+        st.session_state[gallery_index_key] % len(gallery)
+    )
 
+    current_image = get_image_data_url(
+        gallery[current_image_index]
+    )
 
-# Initialisierung
-# ---------------------------------------------------------
-#Der Standardstandort ist Philadelphia:
-#Hier werden die geografischen Koordinaten des Stadtzentrums von Philadelphia gespeichert.
-PHILADELPHIA_CENTER = {"lat": 39.9526, "lon": -75.1652}
-PHILADELPHIA_BOUNDS = {
-    "min_lat": 39.80,
-    "max_lat": 40.10,
-    "min_lon": -75.35,
-    "max_lon": -74.95,
-}
-#Ein Geocoder kann Adressen in geografische Koordinaten umwandeln.
-geolocator = Nominatim(user_agent="platepilot", timeout=10)
+    # Hauptbild über die volle Dialogbreite
+    st.html(
+        f"""
+        <div class="case-image-frame">
+            <img
+                src="{current_image}"
+                alt="{html.escape(project['title'])} –
+                     Ansicht {current_image_index + 1}"
+            >
+        </div>
 
-#RESET: Standardwerte der Suchfilter (für reset oder beim ersten laden des apps)
-DEFAULT_FILTER_VALUES = {
-    "selected_raw": [],
-    "selected_kitchen": [],
-    "selected_price": "﹩﹩",
-    "distance": 10,
-    "selected_extras": [],
-}
+        <div class="case-counter">
+            Bild {current_image_index + 1} von {len(gallery)}
+        </div>
+        """
+    )
 
-#Standardfilter wiederherstellen (RESET)
-def reset_filter_state():
-    # Setzt sowohl deine gespeicherten Filter als auch die Streamlit-Widget-Keys zurück.
-    # Wichtig: Diese Funktion wird als on_click-Callback ausgeführt, bevor Streamlit
-    # die Widgets neu zeichnet. Dadurch werden Preis, Rating und Distance sauber resettet.
-    st.session_state["filter_values"] = DEFAULT_FILTER_VALUES.copy()
-    st.session_state["selected_extras"] = []
-
-    st.session_state["selected_categories_widget"] = []
-    st.session_state["price_widget"] = "﹩﹩"
-    st.session_state["dist_slider"] = 10
-
-    # Optional: alte Ergebnisse bleiben nicht mehr als aktive Suche sichtbar.
-    st.session_state.pop("results", None)
-    st.session_state.pop("filters", None)
-    st.session_state["visible_results"] = 20
-    st.session_state["alpha_widget"] = 0.6
-    st.session_state["w_cat_widget"] = 4.0
-    st.session_state["w_attr_widget"] = 3.0
-    st.session_state["w_price_widget"] = 2.0
-    st.session_state["w_dist_widget"] = 1.0
-
-#Session State: merkt sich Werte pro Nutzer-Session.
-#Streamlit führt bei jedem Klick die ganze Datei neu aus. Ohne session_state würde die App alles vergessen. Merkt "results", "selected_extras"
-#Aktuelle Seite festlegen
-#Hier wird gespeichert, welche Seite der Benutzer gerade sieht. Beim ersten Start gibt es noch keine Seite.
-if "page" not in st.session_state:
-    st.session_state.page = "form"
-
-if "coords" not in st.session_state:
-    st.session_state["coords"] = PHILADELPHIA_CENTER.copy()
-
-#Kartenstatus speichern
-if "show_map" not in st.session_state:
-    st.session_state["show_map"] = False
-
-#Extras initialisieren
-if "selected_extras" not in st.session_state:
-    st.session_state["selected_extras"] = []
-
-#Neue Koordinaten
-if "new_coords" not in st.session_state:
-    st.session_state["new_coords"] = PHILADELPHIA_CENTER.copy()
-
-#Filterwerte initialisieren
-if "filter_values" not in st.session_state:
-    st.session_state["filter_values"] = DEFAULT_FILTER_VALUES.copy()
-
-# Widgets initialisieren.Jetzt werden die Streamlit-Widgets vorbereitet.
-if "selected_categories_widget" not in st.session_state:
-    st.session_state["selected_categories_widget"] = st.session_state["filter_values"].get("selected_raw", [])
-
-if "price_widget" not in st.session_state:
-    st.session_state["price_widget"] = st.session_state["filter_values"].get("selected_price", "﹩﹩")
-
-#Distanz bekommt den zuletzt gespeiherten Wert
-if "dist_slider" not in st.session_state:
-    st.session_state["dist_slider"] = st.session_state["filter_values"].get("distance", 10)
-
-# Extras wiederherstellen
-#Hier wird geprüft: Sind momentan keine Extras ausgewählt,aber wurden früher welche gespeichert? Falls ja,werden sie wieder in das Widget geladen.
-if not st.session_state["selected_extras"] and st.session_state["filter_values"].get("selected_extras"):
-    st.session_state["selected_extras"] = list(st.session_state["filter_values"].get("selected_extras", []))
-
-
-# Hilfsfunktionen
-# ---------------------------------------------------------
-#Mit reverse_geocode() wird aus Koordinaten eine Adresse gemacht.
-def reverse_geocode(lat, lon):
-    try:
-        location = geolocator.reverse((lat, lon), language="de")
-    except Exception:
-        return None, None
-
-    if location and "address" in location.raw:
-        addr = location.raw["address"]
-        stadt = addr.get("city") or addr.get("town") or addr.get("village")
-        strasse = addr.get("road")
-        return stadt, strasse
-
-    return None, None
-
-
-@st.cache_data(ttl=3600, show_spinner=False) #speichert das Ergebnis einer Funktion, damit sie nicht jedes Mal neu berechnet wird.
-def reverse_geocode_cached(lat, lon):
-    return reverse_geocode(lat, lon)
-
-
-#toggle-buttons für additional options
-def toggle_extra(extra: str):
-    sel = st.session_state["selected_extras"]
-    if extra in sel:
-        sel.remove(extra)
-    else:
-        sel.append(extra)
-
-
-# Formular für den User
-# ---------------------------------------------------------
-
-#baut die komplette Startseite der App auf
-def show_form(): #baut Startseite
-
-#kein sidebar
-    hide_sidebar = """
-        <style>
-            [data-testid="stSidebar"] { display: none; }
-            [data-testid="stSidebarNav"] { display: none; }
-            .block-container { padding-left: 2rem; padding-right: 2rem; }
-        </style>
-    """
-    st.markdown(hide_sidebar, unsafe_allow_html=True)
-    
-#Layout erstellen
-    col_logo, col_title = st.columns([0.8, 6])
-
-    with col_logo:
-        st.markdown("<div style='margin-bottom:-2px'></div>", unsafe_allow_html=True)
-        st.image("platepilot.png", width=70)
-
-    with col_title:
-        st.markdown(
-            """
-            <div style="
-                height:100px;
-                display:flex;
-                align-items:center;
-            ">
-                <h1 style="
-                    margin:0;
-                    padding-right:0rem;
-                ">
-                    PlatePilot Navigator
-                </h1>
-            </div>
-            """,
-            unsafe_allow_html=True
+    # Navigation für Bilder innerhalb desselben Projekts
+    if len(gallery) > 1:
+        image_prev, image_count, image_next = st.columns(
+            [1, 0.25, 1],
+            vertical_alignment="center",
         )
 
-    st.markdown("---")
+        with image_prev:
+            if st.button(
+                "← Vorheriges Bild",
+                key=f"previous_image_{project_key}",
+                use_container_width=True,
+            ):
+                st.session_state[gallery_index_key] = (
+                    current_image_index - 1
+                ) % len(gallery)
+                st.rerun()
 
-    lat = st.session_state["coords"]["lat"]
-    lon = st.session_state["coords"]["lon"]
-    stadt, strasse = reverse_geocode_cached(lat, lon)
-
-    if stadt is None:
-        stadt = "Philadelphia"
-
-    colA, colB, colC = st.columns([8, 2.5, 2.5])
-
-    with colA:
-        st.markdown("### Hi Mike 👋")
-
-    with colB:
-        st.markdown(
-            f"""
-            <div style='font-size:15px; line-height:1.2; margin-top:6px;'>
-                📍{(stadt or "Philadelphia")}, {(strasse or "Unbekannte Straße")}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with colC:
-        if st.button("Edit  ✏️"):
-            st.session_state["show_map"] = True
-
-    if st.session_state["show_map"]:
-        st.markdown("### 📍 Edit Location")
-        st.caption("Click anywhere on the map to choose your location.")
-
-        m = folium.Map(location=[PHILADELPHIA_CENTER["lat"], PHILADELPHIA_CENTER["lon"]], zoom_start=12)
-
-        #folium.Marker([lat, lon], tooltip="Current Location").add_to(m)
-        folium.Marker([lat, lon], tooltip="Your chosen location", icon=folium.Icon(color="red", icon="info-sign")).add_to(m)
-        map_data = st_folium(m, height=400, width=700)
-
-        if map_data and map_data.get("last_clicked"):
-            clicked_lat = map_data["last_clicked"]["lat"]
-            clicked_lon = map_data["last_clicked"]["lng"]
-
-            st.session_state["new_coords"] = {
-                "lat": clicked_lat,
-                "lon": clicked_lon
-            }
-
-        if "new_coords" in st.session_state:
-            new_lat = st.session_state["new_coords"]["lat"]
-            new_lon = st.session_state["new_coords"]["lon"]
-            new_stadt, new_strasse = reverse_geocode_cached(new_lat, new_lon)
-
-            if new_stadt is None:
-                new_stadt = "Philadelphia"
-
-            st.markdown(
+        with image_count:
+            st.html(
                 f"""
-                <div style='font-size:16px; line-height:1.2;'>
-                    {new_stadt or "Philadelphia"}, {new_strasse or "Unknown Street"}<br><br>
+                <div class="case-counter">
+                    {current_image_index + 1} / {len(gallery)}
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
-        if st.button("💾 Save location"):
-            st.session_state["coords"] = st.session_state["new_coords"]
-            st.session_state["show_map"] = False
-            st.success("Location successfully updated!")
+        with image_next:
+            if st.button(
+                "Nächstes Bild →",
+                key=f"next_image_{project_key}",
+                use_container_width=True,
+            ):
+                st.session_state[gallery_index_key] = (
+                    current_image_index + 1
+                ) % len(gallery)
+                st.rerun()
+     
+
+    tools_html = "".join(
+        f'<span class="case-chip">{html.escape(tool)}</span>'
+        for tool in project.get("tools", project["tags"])
+    )
+
+    highlights_html = "".join(
+        f"""
+        <li>
+            <span class="case-check">✓</span>
+            {html.escape(highlight)}
+        </li>
+        """
+        for highlight in project.get(
+            "highlights",
+            project["tags"],
+        )
+    )
+
+    # Beschreibung unterhalb der Galerie
+    st.html(
+        f"""
+        <div class="case-description-grid">
+            <section>
+                <h4>Über das Projekt</h4>
+                <p>{html.escape(project["description"])}</p>
+            </section>
+
+            <section>
+                <h4>Meine Rolle</h4>
+                <p>
+                    {html.escape(
+                        project.get("role", project["subtitle"])
+                    )}
+                </p>
+
+                <h4 class="case-tools-heading">
+                    Tools & Technologien
+                </h4>
+
+                <div class="case-chip-row">
+                    {tools_html}
+                </div>
+            </section>
+
+            <section>
+                <h4>Highlights</h4>
+                <ul class="case-highlights">
+                    {highlights_html}
+                </ul>
+            </section>
+        </div>
+        """
+    )
+
+    if project.get("demo_url"):
+        st.link_button(
+            "🚀 PlatePilot App öffnen",
+            project["demo_url"],
+            use_container_width=False,
+        )
+
+
+    # Footer: zwischen Projekten wechseln
+    st.html('<div class="case-project-footer-divider"></div>')
+
+    previous_project_index = (
+        project_index - 1
+    ) % len(ALL_PROJECTS)
+
+    next_project_index = (
+        project_index + 1
+    ) % len(ALL_PROJECTS)
+
+    footer_left, footer_center, footer_right = st.columns(
+        [1, 0.22, 1],
+        vertical_alignment="center",
+    )
+
+    with footer_left:
+        if st.button(
+            "← Vorheriges Projekt",
+            key=f"previous_project_{project_key}",
+            use_container_width=True,
+        ):
+            st.session_state["active_project_index"] = (
+                previous_project_index
+            )
             st.rerun()
 
-    st.markdown("---")
+    with footer_center:
+        st.html(
+            f"""
+            <div class="case-project-counter">
+                {project_index + 1} / {len(ALL_PROJECTS)}
+            </div>
+            """
+        )
 
-    st.markdown("#### What would you like to eat today?")
-    st.button("🔄 Reset", key="reset", on_click=reset_filter_state)
-    #st.markdown("---")
-    # 1. Bevorzugte Küche (mit sichtbarer Gruppierung)
+    with footer_right:
+        if st.button(
+            "Nächstes Projekt →",
+            key=f"next_project_{project_key}",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state["active_project_index"] = (
+                next_project_index
+            )
+            st.rerun()
 
-    st.markdown("### 1. Cuisine / Food")
 
-    grouped_options = {
-        "🔵 CUISINE ─────────────────────────": [
-            "🥨 European", "🍜 Asian", "🥡 Chinese", "🍣 Japanese",
-            "🌮 Mexican", "🥙 Latin American", "🧆 Middle Eastern",
-            "🌍 African", "🍝 Italian", "🥗 Mediterranean",
-            "🕌 South Asian", "🍗 American Traditional",
-            "🌱 Vegetarian / Vegan", "🍖 American New"
-        ],
-        "🟢 DISH ─────────────────────────": [
-            "🍔 Burgers", "🍟 Fast Food", "🍕 Pizza",
-            "🥗 Healthy Options", "🍗 Chicken",
-            "🐟 Seafood", "🥪 Sandwiches", "🍜 Noodles", "🍲 Soup",
-            "🍰 Desserts", "🥐 Bakeries",
-            "🧃 Juice & Smoothies", "🥩 Steak & Barbeque"
-        ],
-        "🟣 VENUE ─────────────────────────": [
-            "🍸 Bars & Nightlife",
-            "☕ Coffee & Tea",
-            "🍳 Breakfast & Brunch",
-            "🍽️ Casual & Quick"
-        ]
-    }
+def project_card(project: dict) -> None:
+    image_src = get_image_data_url(project["card_image"])
 
-    #Auswahlliste für die Küchen und Kategorien im Suchformular
-    def build_grouped_list(groups: dict):
-        items = []
-        for header, values in groups.items():
-            items.append(header)   # Gruppenüberschrift eingefügt.
-            items.extend(values)   # fügt alle Elemente einer Liste hinzu
-        return items
-
-    grouped_list = build_grouped_list(grouped_options)
-
-    selected_raw = st.multiselect(
-        "Select one or more categories:",
-        grouped_list,
-        key="selected_categories_widget"
+    tags = "".join(
+        f'<span class="project-tag">{html.escape(tag)}</span>'
+        for tag in project["tags"]
     )
 
-    # Header entfernen
-    selected_kitchen = [
-        x for x in selected_raw
-        if not x.startswith(("🔵", "🟢", "🟣"))
-    ]
-
-
-    st.markdown("")
-    st.markdown("### 2. Price")
-
-    price_options = ["﹩", "﹩﹩", "﹩﹩﹩", "﹩﹩﹩﹩"]
-
-    # Wichtig: select_slider muss mit einem Tuple starten, damit es ein Range-Slider bleibt.
-    # Falls Streamlit vorher nur einen einzelnen String gespeichert hat, reparieren wir den Wert.
-
-    selected_price = st.select_slider(
-        "Select preferred price:",
-        options= price_options,
-        value="﹩﹩",
-        key="price_widget"
+    project_key = (
+        project["title"]
+        .lower()
+        .replace(" ", "_")
+        .replace("/", "_")
+        .replace("·", "_")
+        .replace(".", "_")
     )
 
-    st.write(
-        f"Selected price: {selected_price}"
-    )
-    st.markdown("")
+    # Karte und Streamlit-Button liegen in einem gemeinsamen Container.
+    # Dadurch kann CSS alle Karten gleich hoch machen und den Button
+    # zuverlässig am unteren Rand ausrichten.
+    with st.container(key=f"project_card_{project_key}"):
+        st.html(
+            f"""
+            <article class="project-card">
 
-    st.markdown("### 3. Distance")
-    #Zuerst macht recommendation.py einen schnellen Vorfilter:
-    #Restaurants, die grob außerhalb der Gegend liegen, werden direkt entfernt.
-    #Dann wird die echte Entfernung berechnet:Je näher das Restaurant ist, desto besser.
-    distance = st.slider(
-        "Select maximum distance:",
-        min_value=1,
-        max_value=50,
-        value=10,
-        step=1,
-        key="dist_slider"
-    )
-
-    st.write(f"Selected distance: up to {distance} km")
-
-    st.markdown("")
-
-    # 6. Extras
-    # ---------------------------------------------------------
-
-    st.markdown("### 4. Additional Options")
-
-    extras_list = [
-        "Wi-Fi", "Outdoor", "Credit Card", "Reservations", "Takeout",
-        "Parking", "Happy Hour", "Dogs Allowed", "TV", "Wheelchair",
-        "Alcohol",  "Quiet", "Bike Parking","Good for Kids", "Good for Groups"
-    ]
-
-    #Extras in Zeilen aufteilen
-    cols_per_row = 5
-    rows = [extras_list[i:i + cols_per_row] for i in range(0, len(extras_list), cols_per_row)]
-
-    #Jede Zeile anzeigen, Spalten erzeugen
-    for row in rows:
-        cols = st.columns(len(row))
-        for col, extra in zip(cols, row): #Extras durchlaufen
-            with col:
-                is_selected = extra in st.session_state["selected_extras"]
-                button_type = "primary" if is_selected else "secondary" #button farbe festlegen
-                if st.button(
-                    f"{'✓ ' if is_selected else ''}{extra}", key=f"chip_{extra}",
-                    type=button_type, use_container_width=True
-                ):
-                    toggle_extra(extra)
-                    st.session_state["filter_values"] = {
-                        "selected_raw": selected_raw,
-                        "selected_kitchen": selected_kitchen,
-                        "selected_price": selected_price,
-                        "distance": distance,
-                        "selected_extras": list(st.session_state["selected_extras"]),
-                    }
-                    st.rerun()
-
-    sel = st.session_state["selected_extras"]
-    if sel:
-        st.write(f"**Your preferences:** {', '.join(sel)}")
-    
-    st.markdown("")
-    
-    #Block für Advanced Recommendation Settings
-    with st.expander("⚙️ Advanced recommendation settings", expanded=False):
-
-        st.markdown(
-                """
-                <div style="display:flex; justify-content:space-between; margin-bottom:-30px;">
-                    <span>🌍 Global</span>
-                    <span>🎯 Personal Fit </span>
+                <div class="project-image-wrapper">
+                    <img
+                        src="{image_src}"
+                        alt="{html.escape(project['title'])}"
+                    >
                 </div>
-                """,
-                unsafe_allow_html=True
-            )
 
-        alpha = st.slider("", 0.0, 1.0, 0.6, key="alpha_widget")
-
-        st.markdown(
-        """
-        <div style="display:flex; justify-content:space-between; margin-bottom:-25px;">
-            <span>🍽️ Cuisine Flexible</span>
-            <span>👨‍🍳 Strong Cuisine Match</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-     )
-
-        w_cat = st.slider("", 0.0, 10.0, 4.0, key="w_cat_widget")
-
-        st.markdown(
+                <div class="project-content">
+                    <h3>{html.escape(project['title'])}</h3>
+                    <p class="project-subtitle">{html.escape(project['subtitle'])}</p>
+                    <p class="project-description">{html.escape(project['description'])}</p>
+                    <div class="project-tags">{tags}</div>
+                </div>
+            </article>
             """
-            <div style="display:flex; justify-content:space-between; margin-bottom:-25px;">
-                <span> 🎁 Extras Optional</span>
-                <span> ✅ Must-Have Extras</span>
-            </div>
-            """,
-            unsafe_allow_html=True
         )
-
-        w_attr = st.slider("", 0.0, 10.0, 3.0, key="w_attr_widget")
-
-        st.markdown(
-            """
-            <div style="display:flex; justify-content:space-between; margin-bottom:-25px;">
-                <span>💰 Price Flexible</span>
-                <span>🎯 Strict Price Match</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        w_price = st.slider("", 0.0, 10.0, 2.0, key="w_price_widget")
-
-        #price_strict = st.toggle(
-        #"Only show restaurants inside selected price range",
-        #value=False
-        #)
-
-        st.markdown(
-            """
-            <div style="display:flex; justify-content:space-between; margin-bottom:-35px;">
-                <span>🚗 Distance Flexible</span>
-                <span>📍Nearby Restaurants</span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        w_dist = st.slider("", 0.0, 10.0, 1.0, key="w_dist_widget")
-
-#CTA Button "Find restaurants"
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔍 Find restaurants", type="primary", use_container_width=False):
-        st.session_state["filter_values"] = {
-            "selected_raw": selected_raw,
-            "selected_kitchen": selected_kitchen,
-            "selected_price": selected_price,
-            "distance": distance,
-            "selected_extras": list(st.session_state["selected_extras"]),
-            "alpha": alpha,
-            "w_cat": w_cat,
-            "w_attr": w_attr,
-            "w_price": w_price,
-           # "price_strict": price_strict,
-            "w_dist": w_dist,
-        }
-
-        #die aktuell ausgewählten Filter wird gespeichert
-        st.session_state["filters"] = {
-            "kitchen": selected_kitchen,
-            "price_range": selected_price,
-            "distance": distance,
-            "extras": list(st.session_state["selected_extras"]),
-            "coords": st.session_state["coords"].copy(),
-            "alpha": alpha,
-            "w_cat": w_cat,
-            "w_attr": w_attr,
-            "w_price": w_price,
-            "w_dist": w_dist,
-        }
-
-        #Preis in Zahl umwandeln
-        price_to_int = {
-            "﹩": 1,
-            "﹩﹩": 2,
-            "﹩﹩﹩": 3,
-            "﹩﹩﹩﹩": 4,
-        }
-
-        u_price = price_to_int[selected_price]
-
-        #Küchennamen übersetzen
-        def clean_label(label):
-            return label.split(" ", 1)[1] if label[:1] and not label[0].isalnum() else label
-        
-        selected_category_names = [
-            KITCHEN_MAP.get(clean_label(k), clean_label(k))
-            for k in selected_kitchen
-        ]
-
-        #app merkt welche Küche der User auswählt und hier wird draus ein Vektor gemacht.1-User möchte diese Kategorie, 0-User möchte nicht
-        #Je ähnlicherr Restaurant und User-Wunsch sind, desto höher ist category_score
-        #Category vector bauen
-        u_cat = [ 
-            1 if col in selected_category_names else 0
-            for col in category_columns
-        ]
-
-        #Additional settings (Extras) normalisieren
-        selected_attr_names = [
-            normalize_extra_name(x)
-            for x in st.session_state["selected_extras"]
-        ]
-
-        #Extras auf echte Spaltennamen mappen
-        extra_to_column = {
-            "Credit Card": "BusinessAcceptsCreditCards",
-            "Outdoor Seating": "OutdoorSeating",
-            "Reservations": "RestaurantsReservations",
-            "Takeout": "RestaurantsTakeOut",
-            "Parking": "BusinessParking",
-            "Happy Hour": "HappyHour",
-            "Dogs Allowed": "DogsAllowed",
-            "TV": "HasTV",
-            "Wheelchair Accessible": "WheelchairAccessible",
-            "Alcohol": "Alcohol",
-            "Noise Level": "Quiet",
-            "Bike Parking": "BikeParking",
-            "Good for Kids": "GoodForKids",
-            "Good for Groups": "RestaurantsGoodForGroups",
-            "WiFi": "WiFi",
-        }
-
-        #Liste mit den tatsächlichen Datenbankspalten, die den ausgewählten Extras entsprechen.
-        selected_attr_columns = [
-            extra_to_column[x]
-            for x in selected_attr_names
-            if x in extra_to_column
-        ]
-
-        #In recommendation.py wird geprüft:
-        #Wie viele gewünschte Extras erfüllt das Restaurant?attribute_score = 2 / 3
-        #Extra Vektor bauen
-        u_attr = [
-            1 if col in selected_attr_columns else 0
-            for col in attr_columns
-        ]
-
-        #Empfehlungsfunktion aufrufen
-        recommended_df = get_recommendations(
-            df=df_merged,
-            u_cat=u_cat,
-            u_attr=u_attr,
-            u_price=u_price,
-            u_lat=st.session_state["coords"]["lat"],
-            u_lon=st.session_state["coords"]["lon"],
-            d_max=distance,
-            alpha=alpha,
-            w_cat=w_cat,
-            w_attr=w_attr,
-            w_price=w_price,
-            w_dist=w_dist,
-            top_n=100,
-        )
-
-        #Distanz und Score für Anzeige vorbereiten
-        recommended_df["distance_km"] = recommended_df["calc_distance"].round(2)
-        recommended_df["final_score"] = recommended_df["SCORE"].round(3)
-
-        #DataFrame in Liste von Dictionaries umwandeln
-        filtered = recommended_df.to_dict(orient="records")
-
-
-        #Ergebnisse-Seite vorbereiten (lazy loading = 20)
-        st.session_state["visible_results"] = 20
-        st.session_state.page = "results" #Die App wechselt von der Suchseite zur Ergebnisseite.
-        st.session_state["results"] = filtered #Die berechneten Ergebnisse werden gespeichert.
-        st.rerun() #Streamlit startet die App neu.
-
-        
-# Restaurant-Ergebnisse
-# ---------------------------------------------------------
-
-def show_results():
-
-    if st.button("⬅️ Back to search"):
-        st.session_state.page = "form"
-        st.rerun()
-    st.markdown("")
-    col_logo, col_title = st.columns([0.8, 6])
-
-    with col_logo:
-        st.image("platepilot.png", width=70)
-
-    with col_title:
-        st.markdown(
-            """
-            <h1 style="padding-top:10px;">
-                Restaurant Results
-            </h1>
-            """,
-            unsafe_allow_html=True
-        )
-
-    st.markdown("---")
-
-    if "results" not in st.session_state:
-        st.warning("Start a search to see results.")
-        return
-
-    results = st.session_state["results"]
-
-    #Anzahl sichtbarer Ergebnisse setzen
-    if "visible_results" not in st.session_state:
-        st.session_state["visible_results"] = 20
-
-    visible = min(st.session_state["visible_results"], len(results))
-    visible_results = results[:visible]
-
-    #Aktive Filter vorbereiten
-    f = st.session_state.get("filters", {})
-    extras_txt = ", ".join(f.get("extras", [])) or "–" #wandle in text
-    kitchen_txt = ", ".join([k for k in f.get("kitchen", [])]) or "–"
-    price_txt = f.get("price_range", "﹩﹩")
-    dist_txt = "any" if f.get("distance", 0) == 0 else f"up to {f.get('distance')} km"
-    #rating_txt = "4 stars and up" if f.get("use_rating") else "all"
-
-    st.markdown(
-        f"**Active Filters:** Cuisine: {kitchen_txt} | Price: {price_txt} | Distance: {dist_txt} | Extras: {extras_txt}"
-    )
-    st.markdown("---")
-    results = st.session_state["results"] 
-    if not results:
-        st.warning(
-            "Unfortunately, no restaurants match your current filters. "
-            "Try adjusting your filters or increasing the search radius."
-        )
-        return
-
-    st.markdown(f"### {len(results)} Restaurants Found")
-
-    for r in visible_results:
-
-        stars = r.get("stars_real")
-        if stars is None or pd.isna(stars):
-            stars = r.get("rating", 0)
-
-        stars_text = f"{float(stars):.2f}"
-        
-        distance = r.get("distance_km", 0)
-        score = r.get("final_score", 0)
-
-        stars_text = f"{float(stars):.2f}"
-        distance_text = f"{float(distance):.2f}"
-        score_text = f"{float(score):.2f}"
-
-        header = (
-            f"{r.get('name', 'Unknown')} "
-            f"— Score {score_text} "
-            f"| ⭐ {stars_text} "
-            f"| {r.get('price', '$$')} "
-            f"| {distance_text} km"
-        )
-
-        with st.expander(header):
-            st.subheader("**Categories**")
-            st.write(", ".join(r.get("categories", [])))
-            st.markdown(
-            f"**Rating:** ⭐ {stars_text} ({r.get('review_count', 0)} reviews)"
-            )
-
-            address = r.get("address", "")
-
-            if address:
-                st.markdown(f"**Address:** {address}")
-            else:
-                st.markdown("**Address:** No address available")
-
-            #öffnungszeiten vorbereiten
-            st.subheader("Opening Hours")
-            hours_data = normalize_attributes(r.get("hours", {}))
-            #Prüfen, ob Öffnungszeiten vorhanden sind
-            if hours_data:
-
-                day_map = {
-                    "Monday": "Mon",
-                    "Tuesday": "Tue",
-                    "Wednesday": "Wed",
-                    "Thursday": "Thu",
-                    "Friday": "Fri",
-                    "Saturday": "Sat",
-                    "Sunday": "Sun"
-                }
-
-            #Reihenfolge der Tage festlegen
-                day_order = [
-                    "Monday",
-                    "Tuesday",
-                    "Wednesday",
-                    "Thursday",
-                    "Friday",
-                    "Saturday",
-                    "Sunday"
-                ]
-
-            #Öffnungszeiten sammeln
-                opening_hours = []
-
-                for day in day_order:
-
-                    if day not in hours_data:
-                        continue
-
-                    hours = hours_data[day]
-
-            #Ungültige Öffnungszeiten ignorieren
-                    if (
-                        not hours
-                        or hours == "None"
-                        or hours == "0:0-0:0"
-                        or hours == "0:00-0:00"
-                    ):
-                        continue
-
-            #Ausgabe vorbereiten
-                    short_day = day_map.get(day, day)
-
-                    opening_hours.append(
-                        f"{short_day}: {format_opening_hours(hours)}"
-                    )
-
-                if opening_hours:
-                    st.write(" | ".join(opening_hours))
-                else:
-                    st.write("No opening hours available.")
-
-            else:
-                st.write("No opening hours available.")
-
-        #Restaurant Preferences / Extras
-            st.subheader("Restaurant Preferences")
-            extras_list = []
-            attr = normalize_attributes(r.get("attributes", {}))
-
-        #attr prüfen und extras hinzufügen
-            if truthy_attr(attr.get("BusinessAcceptsCreditCards")):
-                extras_list.append("Credit Card")
-            if truthy_attr(attr.get("RestaurantsTakeOut")):
-                extras_list.append("Takeout")
-            if truthy_attr(attr.get("WiFi")) and str(attr.get("WiFi")).lower().strip("u'\"") != "no":
-                extras_list.append("Wi-Fi")
-            if truthy_attr(attr.get("WheelchairAccessible")):
-                extras_list.append("Wheelchair")
-            if truthy_attr(attr.get("HappyHour")):
-                extras_list.append("Happy Hour")
-            if truthy_attr(attr.get("OutdoorSeating")):
-                extras_list.append("Outdoor")
-            if truthy_attr(attr.get("HasTV")):
-                extras_list.append("TV")
-            if truthy_attr(attr.get("RestaurantsReservations")):
-                extras_list.append("Reservations")
-            if truthy_attr(attr.get("DogsAllowed")):
-                extras_list.append("Dogs Allowed")
-            if truthy_attr(attr.get("Alcohol")) and str(attr.get("Alcohol")).lower().strip("u'\"") not in {"no", "none"}:
-                extras_list.append("Alcohol")
-            if truthy_attr(attr.get("GoodForKids")):
-                extras_list.append("Good for Kids")
-            if truthy_attr(attr.get("GoodForGroups")):
-                extras_list.append("Good for Groups")
-            if attr.get("NoiseLevel"):
-                noise = attr["NoiseLevel"]
-                noise_map = {"quiet": "Quiet", "average": "Average", "loud": "Loud", "very_loud": "Very loud"}
-                extras_list.append(f"Noise level: {noise_map.get(noise, noise)}")
-            if truthy_attr(attr.get("BusinessParking")) and str(attr.get("BusinessParking")).lower() not in {"none", "no", "false", "{}"}:
-                extras_list.append("Parking")
-            if truthy_attr(attr.get("BikeParking")):
-                extras_list.append("Bike Parking")
-
-            #Ausgewählte User-Extras holen
-
-            selected_extras = st.session_state.get("filters", {}).get("extras", [])
-
-            #Passende Extras finden
-            matched = [
-                e for e in selected_extras
-                if normalize_extra_name(e) in [normalize_extra_name(x) for x in extras_list]
-            ]
-
-            #Weitere vorhandene Extras finden
-            other = [
-                e for e in extras_list
-                if e not in matched
-            ]
-
-            #Passende Wünsche anzeigen
-            if matched:
-                st.markdown("**Matched Preferences**")
-                st.write(", ".join(f"✓ {x}" for x in matched))
-
-            #Zusätzliche Features anzeigen
-            if other:
-                st.markdown("**Additional Features**")
-                st.write(", ".join(other))
-
-            #Falls keine Extras vorhanden sind
-            if not matched and not other:
-                st.write("No extras available.")
-
-            # NUR ZUM TESTEN: Debug Scores anzeigen
-            st.markdown("---")
-            st.markdown("**Debug Scores**")
-
-            st.write(f"Category Score: {r.get('category_score')}")
-            st.write(f"Attribute Score: {r.get('attribute_score')}")
-            st.write(f"Price Score: {r.get('price_score')}")
-            st.write(f"Distance Score: {r.get('distance_score')}")
-            st.write(f"Popularity Score: {r.get('popularity_score')}")
-            st.write(f"Final Score: {r.get('final_score')}")
-
-
-            st.markdown("")
-
-            #Google-Maps-Link erstellen
-            address = r.get("address", "")
-            maps_query = quote_plus(address if address else r.get("name", ""))
-
-            maps_url = f"https://www.google.com/maps/search/?api=1&query={maps_query}"
-
-            st.link_button("📍 Route", maps_url)
-
-#ob noch Ergebnisse übrig sind?
-    if visible < len(results):
-        st.markdown("")
-        remaining = len(results) - visible #Freie Anzahl berechnen:wieviele Restaurants noch nicht angezeigt werden: 100-20=80
-        next_batch = min(20, remaining) #nächste block von lazy loading
 
         if st.button(
-            f"Load {next_batch} more restaurants ({visible}/{len(results)})",
-            use_container_width=True
+            "Projekt ansehen →",
+            key=f"open_project_{project['title']}",
+            use_container_width=True,
         ):
-    #Anzahl sichtbarer Ergebnisse erhöhen
-            st.session_state["visible_results"] = min(
-                visible + 20,
-                len(results)
+            st.session_state["active_project_index"] = ALL_PROJECTS.index(project)
+            st.rerun()
+
+
+def section_header(kicker: str, title: str, text: str = "") -> None:
+    st.html(
+        f"""
+        <div class="section-heading">
+            <span>{html.escape(kicker)}</span>
+            <h2>{html.escape(title)}</h2>
+            {f'<p>{html.escape(text)}</p>' if text else ''}
+        </div>
+        """
+    )
+
+
+# Custom portfolio header. Replace links when the pages are ready.
+st.html(
+    """
+    <header class="site-header">
+        <a class="brand" href="#home">
+            <span class="brand-mark">YP</span>
+            <span>YANA PFALZGRAF</span>
+        </a>
+        <nav>
+            <a href="#about">Über mich</a>
+            <a href="#projects">Projekte</a>
+            <a href="#skills">Skills</a>
+        </nav>
+        <a class="header-cta" href="#contact">Kontakt</a>
+    </header>
+    """
+)
+
+# Hero
+st.html('<span id="home" class="anchor"></span>')
+hero_text, hero_visual = st.columns([1.08, 0.92], gap="large", vertical_alignment="center")
+
+with hero_text:
+    st.html(
+        """
+        <section class="hero-copy">
+            <p class="eyebrow">HALLO, ICH BIN YANA</p>
+            <h1>Data Analystin<br><span>mit UX-Hintergrund</span></h1>
+            <p class="hero-lead">
+                Ich verbinde <b> über zehn Jahre Erfahrung </b> in der Entwicklung digitaler
+                Produkte mit moderner Datenanalyse – für verständliche Insights und
+                fundierte Produktentscheidungen.
+            </p>
+            <div class="hero-actions">
+                <a class="button primary" href="#projects">Meine Projekte ansehen →</a>
+                <a class="button secondary" href="#about">Über mich</a>
+            </div>
+        </section>
+        """
+    )
+
+with hero_visual:
+    st.html(
+        f"""
+        <div class="portrait-wrap">
+            <img
+                src="data:image/jpeg;base64,{portrait_base64}"
+                class="portrait-image"
+                alt="Portrait von Yana Pfalzgraf"
+            >
+        </div>
+        """
+    )
+
+# Kompetenzkarten und End-to-End-Prozess mit lokalen Lucide-SVGs
+st.html(
+    f"""
+    <section class="expertise-section" aria-label="Erfahrung und Arbeitsweise">
+        <div class="expertise-cards">
+            <article class="expertise-card">
+                <div class="expertise-icon" aria-hidden="true">
+                    <img src="{clock_icon}" alt="">
+                </div>
+                <div class="expertise-card-copy">
+                    <p class="expertise-number">10+</p>
+                    <h3>Jahre Erfahrung</h3>
+                    <p>Mehr als ein Jahrzehnt in UX/UI und digitalen Produkten – von der Idee bis zum messbaren Impact.</p>
+                </div>
+            </article>
+
+            <article class="expertise-card">
+                <div class="expertise-icon" aria-hidden="true">
+                    <img src="{workflow_icon}" alt="">
+                </div>
+                <div class="expertise-card-copy">
+                    <p class="expertise-kicker">Ganzheitlich arbeiten</p>
+                    <h3>End-to-End Denken</h3>
+                    <p>Vom Nutzerverständnis über Datenanalyse bis zur Umsetzung und kontinuierlichen Optimierung.</p>
+                </div>
+            </article>
+
+            <article class="expertise-card">
+                <div class="expertise-icon" aria-hidden="true">
+                    <img src="{chart_icon}" alt="">
+                </div>
+                <div class="expertise-card-copy">
+                    <p class="expertise-kicker">Zwei Perspektiven</p>
+                    <h3>Daten. Mensch. Produkt.</h3>
+                    <p>Ich verbinde analytische Erkenntnisse mit Nutzerbedürfnissen und klaren Produktentscheidungen.</p>
+                </div>
+            </article>
+        </div>
+
+        <div class="process-panel">
+            <p class="process-eyebrow">MEIN ANSATZ: END-TO-END &amp; NUTZERZENTRIERT</p>
+            <div class="process-flow">
+                <div class="process-step">
+                    <div class="process-icon" aria-hidden="true">
+                        <img src="{users_icon}" alt="">
+                    </div>
+                    <h4>Verstehen</h4>
+                    <p>Nutzerbedürfnisse und Geschäftsziele erfassen</p>
+                </div>
+
+                <span class="process-arrow" aria-hidden="true">→</span>
+
+                <div class="process-step">
+                    <div class="process-icon" aria-hidden="true">
+                        <img src="{search_icon}" alt="">
+                    </div>
+                    <h4>Analysieren</h4>
+                    <p>Daten untersuchen und Muster erkennen</p>
+                </div>
+
+                <span class="process-arrow" aria-hidden="true">→</span>
+
+                <div class="process-step">
+                    <div class="process-icon" aria-hidden="true">
+                        <img src="{lightbulb_icon}" alt="">
+                    </div>
+                    <h4>Insights ableiten</h4>
+                    <p>Komplexe Daten in klare Erkenntnisse übersetzen</p>
+                </div>
+
+                <span class="process-arrow" aria-hidden="true">→</span>
+
+                <div class="process-step">
+                    <div class="process-icon" aria-hidden="true">
+                        <img src="{target_icon}" alt="">
+                    </div>
+                    <h4>Entscheiden</h4>
+                    <p>Empfehlungen aussprechen und Prioritäten setzen</p>
+                </div>
+
+                <span class="process-arrow" aria-hidden="true">→</span>
+
+                <div class="process-step">
+                    <div class="process-icon" aria-hidden="true">
+                        <img src="{growth_icon}" alt="">
+                    </div>
+                    <h4>Optimieren</h4>
+                    <p>Maßnahmen begleiten und Wirkung messen</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    """
+)
+
+
+# About & skills
+st.html('<span id="about" class="anchor"></span>')
+about_col, skills_col = st.columns([0.95, 1.05], gap="large")
+
+with about_col:
+    section_header("PROFIL", "Über mich")
+    st.markdown(
+        """
+Ich bin **Data Analystin mit einem starken Fundament in UX/UI Design** und
+über zehn Jahren Erfahrung in der Entwicklung digitaler Produkte. Dabei habe
+ich gelernt, komplexe Anforderungen zu strukturieren, Nutzerbedürfnisse zu
+verstehen und verständliche Lösungen zu gestalten.
+
+Mit meiner Weiterbildung in **Data Science & Analytics** habe ich diese
+Erfahrung um Python, Statistik, Machine Learning und Datenvisualisierung
+erweitert. Heute verbinde ich analytisches Denken mit nutzerzentrierter
+Produktentwicklung, um Daten in klare Erkenntnisse und sinnvolle
+Entscheidungsgrundlagen zu übersetzen.
+
+Besonders interessieren mich **Product Analytics, Data Analytics und
+datenbasierte digitale Produkte** – also Aufgaben an der Schnittstelle von
+Mensch, Daten und Technologie.
+        """
+    )
+
+with skills_col:
+    st.html('<span id="skills" class="anchor"></span>')
+    section_header("TOOLKIT", "Meine Kompetenzen")
+    skills = [
+        "Python", "Pandas", "SQL", "Excel", "Power BI",
+        "Data Visualization", "Explorative Analyse", "Scrum Master", "Streamlit", "Statistik", "Machine Learning",
+        "UX Research", "UI Design", "Prototyping", "Figma",
+        "Information Architecture", "Design Systems", "Stakeholder-Kommunikation",
+    ]
+    st.html(
+        '<div class="skills-grid">'
+        + "".join(f'<span>{html.escape(skill)}</span>' for skill in skills)
+        + "</div>"
+    )
+
+# Projects
+st.html('<span id="projects" class="anchor"></span>')
+section_header(
+    "AUSGEWÄHLTE ARBEITEN",
+    "Projekte",
+    "Data-Science-Kompetenzen und UX-Erfahrung neue in einer gemeinsamen Produktperspektive.",
+)
+
+st.html('<div class="project-category data"><span>DATA SCIENCE & ANALYTICS</span></div>')
+
+# Exakt drei Data-Science-Projekte: statisches Grid ohne Pfeile und Punkte.
+data_cols = st.columns(3, gap="medium")
+for column, project in zip(data_cols, PROJECTS_DATA):
+    with column:
+        project_card(project)
+
+
+
+st.html('<div class="project-category"><span>UX/UI & PRODUCT DESIGN</span></div>')
+
+# Desktop: drei Karten sichtbar. Mit den Pfeilen wird jeweils um eine Karte verschoben.
+ux_start = min(
+    max(0, st.session_state["ux_carousel_start"]),
+    UX_MAX_START,
+)
+st.session_state["ux_carousel_start"] = ux_start
+visible_ux_projects = PROJECTS_UX[ux_start:ux_start + UX_VISIBLE_CARDS]
+
+with st.container(key="ux_project_carousel"):
+    left_arrow, card_1, card_2, card_3, right_arrow = st.columns(
+        [0.13, 1, 1, 1, 0.13],
+        gap="medium",
+        vertical_alignment="center",
+    )
+
+    with left_arrow:
+        if st.button(
+            "←",
+            key="ux_carousel_previous",
+            disabled=ux_start == 0,
+            help="Vorherige Projekte",
+            use_container_width=True,
+        ):
+            st.session_state["ux_carousel_start"] = max(0, ux_start - 1)
+            st.rerun()
+
+    for column, project in zip(
+        (card_1, card_2, card_3),
+        visible_ux_projects,
+    ):
+        with column:
+            project_card(project)
+
+    with right_arrow:
+        if st.button(
+            "→",
+            key="ux_carousel_next",
+            disabled=ux_start >= UX_MAX_START,
+            help="Weitere Projekte",
+            use_container_width=True,
+        ):
+            st.session_state["ux_carousel_start"] = min(
+                UX_MAX_START,
+                ux_start + 1,
             )
             st.rerun()
-    elif results:
-        st.caption("You've reached the end of the results.")
+
+    if UX_MAX_START > 0:
+        dots = "".join(
+            '<span class="carousel-dot active" aria-current="true"></span>'
+            if index == ux_start
+            else '<span class="carousel-dot"></span>'
+            for index in range(UX_MAX_START + 1)
+        )
+        st.html(
+            f'<div class="carousel-dots" aria-label="Carousel-Position">{dots}</div>'
+        )
+
+# Der Dialog wird nur auf Top-Level geöffnet.
+# Dadurch können Projekte gewechselt werden, ohne Dialoge zu verschachteln.
+active_project_index = st.session_state.get("active_project_index")
+if active_project_index is not None:
+    project_dialog(ALL_PROJECTS[active_project_index])
+
+# CTA
+st.html('<span id="contact" class="anchor"></span>')
+
+with st.container(key="contact_banner"):
+    contact_copy, contact_action = st.columns(
+        [4.2, 1.25],
+        gap="large",
+        vertical_alignment="center",
+    )
+
+    with contact_copy:
+        st.html(
+            """
+            <div class="contact-banner-copy">
+                <p class="eyebrow">KONTAKT</p>
+                <h2>Lass uns gemeinsam Zukunft gestalten.</h2>
+                <p>
+                    Ich freue mich über Austausch, neue Herausforderungen
+                    und passende Rollen im Bereich Data Analytics.
+                </p>
+            </div>
+            """
+        )
+
+    with contact_action:
+        st.button(
+            "Zum Formular →",
+            key="open_portfolio_chat_button",
+            type="primary",
+            use_container_width=True,
+            on_click=open_contact_form,
+        )
+        st.caption("Öffnet das Kontaktformular.")
+
+# Kontaktformular und Chatbot bleiben vollständig voneinander getrennt.
+if st.session_state.get("contact_form_open", False):
+    contact_form_dialog(
+        portrait_data_url=f"data:image/jpeg;base64,{portrait_base64}"
+    )
+
+# Der Portfolio-Chat ist als schwebendes, beim Scrollen sichtbares Element verfügbar.
+render_floating_chat(
+    portrait_data_url=f"data:image/jpeg;base64,{portrait_base64}"
+)
 
 
-# Routing: Welche Seite soll gerade angezeigt werden?
-# ---------------------------------------------------------
-
-if st.session_state.page == "form":
-    show_form()
-else:
-    show_results()
-
-#SESSION-VERHALTEN
-#App startet / Button wird geklickt
-#       ↓
-#Streamlit führt app.py komplett neu aus
-#       ↓
-#Prüfung: Sind Daten schon in session_state?
-#       ↓
-#Nein → load_and_prepare_data()
-#       ↓
-#@st.cache_data prüft:
-#  Sind die Daten schon im Cache?
-#       ↓
-#   Nein → Parquet-Datei laden und vorbereiten
-#   Ja  → gespeichertes Ergebnis verwenden
-#       ↓
-#DataFrame + Restaurantliste werden in session_state gespeichert
-#       ↓
-#App zeigt entweder:
-#   page = "form"    → Suchformular
-#   page = "results" → Ergebnisseite
-
-#STRUKTUR VON DEM APP.py
-
-#│
-#├── 1. Imports
-#    └── Streamlit, Pandas, Folium, Geopy, Math
-
-#├── 2. Konstanten
-#    ├── KITCHEN_MAP
-#    ├── category_columns
-#    └── PRICE_ORDER
-
-#── 3. Hilfsfunktionen für Daten
-#│   ├── normalize_attributes()
-#│   ├── fix_attribute_names()
-#│   ├── truthy_attr()
-#│   └── normalize_price()
-#│
-#├── 4. Daten laden
-#│   └── load_and_prepare_data()
-#│       ├── Parquet-Datei suchen
-#│       ├── Daten laden
-#│       ├── Spalten vereinheitlichen
-#│       ├── Kategorien bauen
-#│       ├── Preise normalisieren
-#│       └── Restaurantliste erstellen
-#│
-#├── 5. Session State initialisieren
-#│   ├── page
-#│   ├── coords
-#│   ├── selected_extras
-#│   ├── results
-#│   └── restaurants_list
-#│
-#├── 6. Standort-Funktionen
-#│   ├── reverse_geocode()
-#│   ├── reverse_geocode_cached()
-#│   └── is_within_philadelphia()
-#│
-#├── 7. Filterlogik
-#│   ├── in_price_range()
-#│   ├── within_distance()
-#│   ├── haversine_distance_km()
-#│   ├── passes_rating()
-#│   ├── matches_kitchen()
-#│   ├── build_attr_mapping()
-#│   └── filter_restaurants()
-#│
-#├── 8. Suchseite
-#│   └── show_form()
-#│       ├── Logo + Titel
-#│       ├── Standort anzeigen / bearbeiten
-#│       ├── Cuisine-Filter
-#│       ├── Price-Filter
-#│       ├── Rating-Filter
-#│       ├── Distance-Filter
-#│       ├── Extra-Filter
-#│       └── Find restaurants Button
-#│
-#├── 9. Ergebnisseite
-#│   └── show_results()
-#│       ├── Back Button
-#│       ├── aktive Filter anzeigen
-#│       ├── Restaurants anzeigen
-#│       ├── Details pro Restaurant
-#│       └── Load more Button
-#│
-#└── 10. Routing
-#    ├── page == "form"    → show_form()
-#    └── page == "results" → show_results()
+st.html(
+    """
+    <footer>
+        <div>
+            <strong>YP · YANA PFALZGRAF</strong>
+            <p>Data Analystin mit UX-Hintergrund |
+            <a href="https://canva.link/0cbpgfioj5zewby" target="_blank" rel="noopener noreferrer">Zeugnisse</a>
+            &middot; </p>
+        </div>
+        <div>
+            <strong>KONTAKT</strong>
+            <p>Yana Pfalzgraf <br> Falkenstrasse 37 <br> 74405 Gaildorf <br> Deutschland <br> yanapfalzgraf@googlemail.com</p>
+        </div>
+        <div>
+        <strong>LINKS</strong>
+        <p>
+            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/">LinkedIn</a>
+            &middot;
+            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon">XING</a>
+            &middot;
+            <a href="https://github.com/yanapfalzgraf/platpilotnavigator">GitHub</a>
+        </p>
+</div>
+    </footer>
+    """
+)
