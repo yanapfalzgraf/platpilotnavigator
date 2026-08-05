@@ -986,34 +986,40 @@ render_floating_chat(
 
 st.html(
     """
-    <footer>
-        <div>
-            <strong>YP · YANA PFALZGRAF</strong>
-            <p>Data Analystin mit UX-Hintergrund |
-            <a href="https://canva.link/0cbpgfioj5zewby" target="_blank" rel="noopener noreferrer">Zeugnisse</a>
-            &middot; </p>
-        </div>
-        <div>
-            <strong>KONTAKT</strong>
-            <p>Yana Pfalzgraf <br> Falkenstrasse 37 <br> 74405 Gaildorf <br> Deutschland <br> yanapfalzgraf@googlemail.com</p>
-        </div>
-        <div>
-  <strong>LINKS</strong>
-        <p>
-            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/"
-            target="_blank"
-            rel="noopener noreferrer">LinkedIn</a>
-            &middot;
-            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon"
-            target="_blank"
-            rel="noopener noreferrer">XING</a>
-            &middot;
-            <a href="https://github.com/yanapfalzgraf"
-            target="_blank"
-            rel="noopener noreferrer">GitHub</a>
-        </p>
-</div>
+  <footer>
+    <div>
+        <strong>LINKS</strong>
 
-    </footer>
+        <p>
+            <a
+                href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                LinkedIn
+            </a>
+
+            &middot;
+
+            <a
+                href="https://www.xing.com/profile/Yana_Pfalzgraf"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                XING
+            </a>
+
+            &middot;
+
+            <a
+                href="https://github.com/yanapfalzgraf"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                GitHub
+            </a>
+        </p>
+    </div>
+</footer>
     """
 )
