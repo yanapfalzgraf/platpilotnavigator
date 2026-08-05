@@ -984,42 +984,37 @@ render_floating_chat(
 )
 
 
-st.html(
+st.markdown(
     """
-  <footer>
-    <div>
-        <strong>LINKS</strong>
+    <footer>
+        <div>
+            <strong>LINKS</strong>
 
-        <p>
-            <a
-                href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                LinkedIn
-            </a>
+            <p>
+                <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    LinkedIn
+                </a>
 
-            &middot;
+                &middot;
 
-            <a
-                href="https://www.xing.com/profile/Yana_Pfalzgraf"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                XING
-            </a>
+                <a href="https://www.xing.com/profile/Yana_Pfalzgraf"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    XING
+                </a>
 
-            &middot;
+                &middot;
 
-            <a
-                href="https://github.com/yanapfalzgraf"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                GitHub
-            </a>
-        </p>
-    </div>
-</footer>
-    """
+                <a href="https://github.com/yanapfalzgraf"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    GitHub
+                </a>
+            </p>
+        </div>
+    </footer>
+    """,
+    unsafe_allow_html=True,
 )
