@@ -998,19 +998,22 @@ st.html(
             <p>Yana Pfalzgraf <br> Falkenstrasse 37 <br> 74405 Gaildorf <br> Deutschland <br> yanapfalzgraf@googlemail.com</p>
         </div>
         <div>
-        <strong>LINKS</strong>
+  <strong>LINKS</strong>
         <p>
-            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/"
+            target="_blank"
+            rel="noopener noreferrer">LinkedIn</a>
             &middot;
-            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon" target="_blank" rel="noopener noreferrer">XING</a>
+            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon"
+            target="_blank"
+            rel="noopener noreferrer">XING</a>
             &middot;
             <a href="https://github.com/yanapfalzgraf"
-                target="_blank"
-                rel="noopener noreferrer">
-                GitHub
-            </a>
+            target="_blank"
+            rel="noopener noreferrer">GitHub</a>
         </p>
 </div>
+
     </footer>
     """
 )
