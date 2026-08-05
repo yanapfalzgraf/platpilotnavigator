@@ -1000,11 +1000,15 @@ st.html(
         <div>
         <strong>LINKS</strong>
         <p>
-            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/">LinkedIn</a>
+            <a href="https://www.linkedin.com/in/yana-pfalzgraf-610669136/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
             &middot;
-            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon">XING</a>
+            <a href="https://www.xing.com/profile/Yana_Pfalzgraf/web_profiles?nwt_nav=profile_icon" target="_blank" rel="noopener noreferrer">XING</a>
             &middot;
-            <a href="https://github.com/yanapfalzgraf/platpilotnavigator">GitHub</a>
+            <a href="https://github.com/yanapfalzgraf"
+                target="_blank"
+                rel="noopener noreferrer">
+                GitHub
+            </a>
         </p>
 </div>
     </footer>
