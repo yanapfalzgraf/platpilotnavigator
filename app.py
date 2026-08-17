@@ -679,10 +679,6 @@ LOGO_PATH = _find_asset(
 )
 
 HERO_PATH = _find_asset(
-    "Bilder/gericht.png",
-    "Bilder/gericht.jpg",
-    "Bilder/gericht.jpeg",
-    "Bilder/gericht.webp",
     "gericht.png",
     "gericht.jpg",
     "gericht.jpeg",
