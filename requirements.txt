@@ -1,8 +1,7 @@
-streamlit
+streamlit==1.60.0
 pandas
 numpy
-altair
 folium
-streamlit_folium
+streamlit-folium
 geopy
 pyarrow
