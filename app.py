@@ -1680,7 +1680,7 @@ def inject_platepilot_css():
             --pp-dd-chip-border: #2e4866;
         }
 
-        /* FOOD / CUISINE – geschlossen */
+        /* 1. FOOD / CUISINE – GESCHLOSSEN */
         .st-key-selected_categories_widget [data-baseweb="select"] {
             position: relative !important;
             min-height: 56px !important;
@@ -1690,7 +1690,7 @@ def inject_platepilot_css():
         .st-key-selected_categories_widget [data-baseweb="select"] > div {
             min-height: 56px !important;
             padding: 6px 30px 6px 40px !important;
-            background: linear-gradient(180deg, rgba(12,30,48,.98), rgba(7,21,34,.98)) !important; /*geschlossenes großes dropdown*/
+            background: linear-gradient(180deg, rgba(12,30,48,.98), rgba(7,21,34,.98)) !important;
             border: 1px solid var(--pp-dd-border) !important;
             border-radius: 10px !important;
             color: var(--pp-dd-text) !important;
@@ -1755,36 +1755,15 @@ def inject_platepilot_css():
             -webkit-text-fill-color: #eaf0f8 !important;
         }
 
-        /* SORT – geschlossen */
+        /* 2. SORT – GESCHLOSSEN */
         .st-key-sort_mode [data-baseweb="select"] {
             position: relative !important;
             min-height: 42px !important;
             color-scheme: dark !important;
         }
 
-        /* NEU: tatsächlichen Wrapper um das Combobox-Input färben */
         .st-key-sort_mode div:has(> input[role="combobox"]),
-        .st-key-sort_mode div:has(> div > input[role="combobox"]) {
-            background: #081522 !important;
-            background-color: #081522 !important;
-            background-image: none !important;
-        }
-
-
-        /* deine bestehenden Regeln danach */
-        .st-key-sort_mode [data-baseweb="select"] > div {
-            min-height: 42px !important;
-            padding: 4px 38px 4px 12px !important;
-            border: 1px solid var(--pp-dd-border) !important;
-            border-radius: 8px !important;
-        }
-
-        .st-key-sort_mode [data-baseweb="select"] :is(p, span, input) {
-            color: var(--pp-dd-text) !important;
-            -webkit-text-fill-color: var(--pp-dd-text) !important;
-            font-size: .875rem !important;
-        }
-
+        .st-key-sort_mode div:has(> div > input[role="combobox"]),
         .st-key-sort_mode [data-baseweb="select"] > div,
         .st-key-sort_mode [data-baseweb="select"] > div > div,
         .st-key-sort_mode [data-baseweb="select"] [role="combobox"] {
@@ -1797,16 +1776,15 @@ def inject_platepilot_css():
             -webkit-text-fill-color: var(--pp-dd-text) !important;
         }
 
-        /* Innere Text-/Icon-Ebenen transparent halten, damit kein graues BaseWeb-Layer sichtbar bleibt. */
-        .st-key-sort_mode [data-baseweb="select"] > div > div * {
-            background-color: transparent !important;
-            background-image: none !important;
-        }
-
         .st-key-sort_mode [data-baseweb="select"] > div {
             padding: 4px 38px 4px 12px !important;
             border: 1px solid var(--pp-dd-border) !important;
             border-radius: 8px !important;
+        }
+
+        .st-key-sort_mode [data-baseweb="select"] > div > div * {
+            background-color: transparent !important;
+            background-image: none !important;
         }
 
         .st-key-sort_mode [data-baseweb="select"]::before {
@@ -1834,8 +1812,7 @@ def inject_platepilot_css():
             box-shadow: 0 0 0 1px rgba(138,77,255,.72), 0 0 0 3px rgba(138,77,255,.09) !important;
         }
 
-        /* Geöffnete Menüs – Navy-Hintergrund auf ALLEN BaseWeb-Flächen.
-           Wichtig: Option-Inhalte werden weiter unten wieder transparent gesetzt. */
+        /* 3. GEÖFFNETE DROPDOWNS – PORTAL / VIRTUAL DROPDOWN */
         body [data-baseweb="popover"],
         body [data-baseweb="popover"] > div,
         body [data-baseweb="popover"] > div > div,
@@ -1848,15 +1825,17 @@ def inject_platepilot_css():
         body [data-baseweb="menu"] > div > div,
         body [role="listbox"],
         body [role="listbox"] > div,
-        body [role="listbox"] > div > div {
-            background-color: #081522 !important; /*geöffnetes kleines dropdown farbe*/
+        body [role="listbox"] > div > div,
+        ul[data-testid="stSelectboxVirtualDropdown"],
+        ul[data-testid="stSelectboxVirtualDropdown"] > div,
+        ul[data-testid="stSelectboxVirtualDropdown"] > div > div {
+            background: #081522 !important;
+            background-color: #081522 !important;
             background-image: none !important;
             color: var(--pp-dd-text) !important;
             color-scheme: dark !important;
         }
 
-        /* BaseWeb legt je nach Streamlit-Version zusätzliche Wrapper tiefer im Portal an.
-           Diese bekommen ebenfalls Navy; die Optionszeilen selbst bleiben separat steuerbar. */
         body [data-baseweb="popover"] [role="listbox"] div,
         body [data-baseweb="menu"] [role="listbox"] div {
             background-color: #081522 !important;
@@ -1929,7 +1908,6 @@ def inject_platepilot_css():
             border-radius: 999px !important;
         }
 
-
         /* ---------- Section Title ---------- */
         .pp-section-title {
             font-size: 32px;
@@ -1950,40 +1928,6 @@ def inject_platepilot_css():
         }
 
         /* Dropdown styling is defined globally above. */
-
-        /* Clear all ganz rechts ausrichten */
-        .st-key-clear_cuisine_btn {
-            display: flex !important;
-            justify-content: flex-end !important;
-        }
-
-        .st-key-clear_cuisine_btn div[data-testid="stButton"] {
-            width: auto !important;
-            margin-left: auto !important;
-        }
-
-        .st-key-clear_cuisine_btn button {
-            width: auto !important;
-        }
-
-        /* Food-Multiselect: rechte Icons an den rechten Rand */
-
-        .st-key-selected_categories_widget
-        [data-baseweb="select"] > div > div:last-child {
-            margin-left: auto !important;
-            padding-right: 4px !important;
-        }
-
-        /* Food / Streamlit Virtual Dropdown – eigentliche große Menüfläche */
-        ul[data-testid="stSelectboxVirtualDropdown"],
-        ul[data-testid="stSelectboxVirtualDropdown"] > div,
-        ul[data-testid="stSelectboxVirtualDropdown"] > div > div {
-            background: #081522 !important;
-            background-color: #081522 !important;
-            background-image: none !important;
-        }
-
-
 </style>
         """
     )
